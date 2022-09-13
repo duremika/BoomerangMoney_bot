@@ -40,6 +40,20 @@ public class TelegramBot extends TelegramLongPollingBot {
         } else if (update.hasMyChatMember() && update.getMyChatMember().getNewChatMember().getStatus().equals("kicked")) {
             Long id = update.getMyChatMember().getChat().getId();
             eventsHandler.goodbye(id);
+        } else if (update.hasMessage() && update.getMessage().hasText() && update.getMessage().getText().contains("\uD83D\uDCF1")) {
+            Long id = update.getMessage().getChatId();
+            try {
+                execute(eventsHandler.myOffice(id));
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
+        } else if (update.hasMessage() && update.getMessage().hasText() && update.getMessage().getText().contains("\uD83D\uDCDA")) {
+            Long id = update.getMessage().getChatId();
+            try {
+                execute(eventsHandler.aboutBot(id));
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
         } else {
             log.info(update.toString());
         }

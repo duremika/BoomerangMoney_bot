@@ -2,6 +2,7 @@ package ru.duremika.boomerangbot.service;
 
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import ru.duremika.boomerangbot.constants.Keyboards;
 import ru.duremika.boomerangbot.exception.UserBannedException;
 
@@ -89,4 +90,62 @@ public class TelegramEventsHandler {
                 .replyMarkup(Keyboards.aboutBotInlineKeyboard)
                 .build();
     }
+
+    EditMessageText aboutBot(Long chatId, Integer messageId) {
+        return EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .text("\uD83D\uDCDA Информация о нашем боте:")
+                .replyMarkup(Keyboards.aboutBotInlineKeyboard)
+                .build();
+    }
+
+    EditMessageText chat(Long chatId, Integer messageId) {
+        return EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .text("❤️ Чтобы перейти в чат, нажмите ссылку ниже:")
+                .replyMarkup(Keyboards.chatInlineKeyboard)
+                .build();
+    }
+
+    EditMessageText rules(Long chatId, Integer messageId) {
+        return EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .text("⚠️Используя данный бот, вы автоматически соглашаетесь с " +
+                        "правилами которые описаны ниже по ссылке, любые ваши " +
+                        "операции и действия на проекте расцениваются " +
+                        "администрацией как ваше согласие на их проведение!\n\n" +
+                        "♻️Правила бота: [читать!](https://telegra.ph/Pravila-bota-TGSTAR-BOT-12-14)")
+                .parseMode("Markdown")
+                .disableWebPagePreview(true)
+                .replyMarkup(Keyboards.rulesInlineKeyboard)
+                .build();
+    }
+
+
+    EditMessageText administration(Long chatId, Integer messageId) {
+        return EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .text("⚠️ Обращаться к администратору в случае:\n\n" +
+                        "1. Если обнаружен баг (ошибка).\n" +
+                        "2. У вас есть деловое предложение.\n" +
+                        "3. Хотите иметь собственного бота.\n" +
+                        "4. Запрещено спрашивать по поводу выплат.")
+                .replyMarkup(Keyboards.administrationInlineKeyboard)
+                .build();
+    }
+
+    EditMessageText wantBot(Long chatId, Integer messageId) {
+        return EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .text("⚠️ Если вы хотите заказать бот, напишите разработчикам, кнопка ниже:")
+                .replyMarkup(Keyboards.wantBotInlineKeyboard)
+                .build();
+    }
+
+
 }

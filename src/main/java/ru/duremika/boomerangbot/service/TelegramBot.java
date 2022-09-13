@@ -54,6 +54,46 @@ public class TelegramBot extends TelegramLongPollingBot {
             } catch (TelegramApiException e) {
                 e.printStackTrace();
             }
+        } else if (update.hasCallbackQuery() && update.getCallbackQuery().getData().equals("about bot")) {
+            Long chatId = update.getCallbackQuery().getMessage().getChatId();
+            Integer mId = update.getCallbackQuery().getMessage().getMessageId();
+            try {
+                execute(eventsHandler.aboutBot(chatId, mId));
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
+        } else if (update.hasCallbackQuery() && update.getCallbackQuery().getData().equals("chat")) {
+            Long chatId = update.getCallbackQuery().getMessage().getChatId();
+            Integer mId = update.getCallbackQuery().getMessage().getMessageId();
+            try {
+                execute(eventsHandler.chat(chatId, mId));
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
+        } else if (update.hasCallbackQuery() && update.getCallbackQuery().getData().equals("rules")) {
+            Long chatId = update.getCallbackQuery().getMessage().getChatId();
+            Integer mId = update.getCallbackQuery().getMessage().getMessageId();
+            try {
+                execute(eventsHandler.rules(chatId, mId));
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
+        } else if (update.hasCallbackQuery() && update.getCallbackQuery().getData().equals("admin")) {
+            Long chatId = update.getCallbackQuery().getMessage().getChatId();
+            Integer mId = update.getCallbackQuery().getMessage().getMessageId();
+            try {
+                execute(eventsHandler.administration(chatId, mId));
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
+        } else if (update.hasCallbackQuery() && update.getCallbackQuery().getData().equals("want bot")) {
+            Long chatId = update.getCallbackQuery().getMessage().getChatId();
+            Integer mId = update.getCallbackQuery().getMessage().getMessageId();
+            try {
+                execute(eventsHandler.wantBot(chatId, mId));
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
         } else {
             log.info(update.toString());
         }

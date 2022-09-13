@@ -69,5 +69,36 @@ public class Keyboards {
             ))
             .build();
 
+    public final static InlineKeyboardMarkup chatInlineKeyboard = InlineKeyboardMarkup.builder()
+            .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDCAC Чат \uD83C\uDDF7\uD83C\uDDFA") {{
+                setUrl("https://t.me/BotFather");
+            }}))
+            .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
+                setCallbackData("about bot");
+            }}))
+            .build();
 
+    public final static InlineKeyboardMarkup rulesInlineKeyboard = InlineKeyboardMarkup.builder()
+            .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
+                setCallbackData("about bot");
+            }}))
+            .build();
+
+    public final static InlineKeyboardMarkup administrationInlineKeyboard = InlineKeyboardMarkup.builder()
+            .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDCDD Написать") {{
+                setUrl("https://t.me/x_MaksOn_x");
+            }}))
+            .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
+                setCallbackData("about bot");
+            }}))
+            .build();
+
+    public final static InlineKeyboardMarkup wantBotInlineKeyboard = InlineKeyboardMarkup.builder()
+            .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDCDD Написать") {{
+                setUrl("https://t.me/x_MaksOn_x");
+            }}))
+            .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
+                setCallbackData("about bot");
+            }}))
+            .build();
 }

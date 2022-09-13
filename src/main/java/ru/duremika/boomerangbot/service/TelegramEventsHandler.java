@@ -2,8 +2,6 @@ package ru.duremika.boomerangbot.service;
 
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.duremika.boomerangbot.constants.Keyboards;
 
 @Component
@@ -15,26 +13,17 @@ public class TelegramEventsHandler {
     }
 
 
-    void welcome(TelegramBot bot, Update update) {
-        SendMessage sendMessage;
-        Long id = update.getMyChatMember().getChat().getId();
-
+    SendMessage welcome(Long id) {
         boolean isNewUser = userService.createOrUpdateUser(id);
         String text = isNewUser ? "✅ Отлично!\nВы зарегистрированы!" : "✋ С возвращением";
-        sendMessage = SendMessage.builder()
+        return SendMessage.builder()
                 .chatId(id)
                 .text(text)
                 .replyMarkup(Keyboards.mainReplyKeyboardMarkup)
                 .build();
-        try {
-            bot.execute(sendMessage);
-        } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
-        }
     }
 
-    void goodbye( Update update) {
-        Long id = update.getMyChatMember().getChat().getId();
+    void goodbye(Long id) {
         userService.disableUser(id);
     }
 }

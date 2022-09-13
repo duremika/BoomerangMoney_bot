@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.duremika.boomerangbot.config.BotConfig;
 
 @Slf4j
@@ -30,9 +31,15 @@ public class TelegramBot extends TelegramLongPollingBot {
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMyChatMember() && update.getMyChatMember().getNewChatMember().getStatus().equals("member")) {
-            eventsHandler.welcome(this, update);
+            try {
+                Long id = update.getMyChatMember().getChat().getId();
+                execute(eventsHandler.welcome(id));
+            } catch (TelegramApiException e) {
+                e.printStackTrace();
+            }
         } else if (update.hasMyChatMember() && update.getMyChatMember().getNewChatMember().getStatus().equals("kicked")) {
-            eventsHandler.goodbye(update);
+            Long id = update.getMyChatMember().getChat().getId();
+            eventsHandler.goodbye(id);
         } else {
             log.info(update.toString());
         }

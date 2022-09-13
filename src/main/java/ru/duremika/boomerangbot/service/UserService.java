@@ -19,34 +19,47 @@ public class UserService {
     }
 
 
-    public boolean createOrUpdateUser(Long id){
-        boolean isNew;
-
+    public boolean createOrUpdateUser(Long id) {
         Optional<User> optionalUser = repository.findById(id);
         User user;
-        if (optionalUser.isEmpty()){
-            isNew = true;
-            user = new User();
-            user.setId(id);
-            user.setCreatedAt(new Timestamp(System.currentTimeMillis()));
-            user.setAchievementList(new HashSet<>());
-            user.setTasks(new Tasks(){{setId(id);}});
-            user.setBalance(new Balance(){{setId(id);}});
-            user.setEarned(new Earned(){{setId(id);}});
-            user.setStatus(Status.INACTIVE);
+        if (optionalUser.isEmpty()) {
+            user = createNewUser(id);
             repository.save(user);
             log.info("New user created:\n" + user);
+            return true;
         } else {
-            isNew = false;
             user = optionalUser.get();
-            user.setStatus(Status.INACTIVE);
-            repository.save(user);
-            log.info("User already created:\n" + user);
+            if (user.getStatus().equals(Status.BANNED)) {
+                log.info("User banned:\n" + user);
+            } else if (user.getStatus().equals(Status.DISABLED)) {
+                user.setStatus(Status.ENABLED);
+                repository.save(user);
+                log.info("User already exists:\n" + user);
+            }
+            return false;
         }
-        return isNew;
     }
 
-    public void disableUser(Long id){
+    User createNewUser(Long id) {
+        return new User(
+                id,
+                new Timestamp(System.currentTimeMillis()),
+                Status.ENABLED,
+                new HashSet<>(),
+                new Tasks() {{
+                    setId(id);
+                }},
+                new Balance() {{
+                    setId(id);
+                }},
+                new Earned() {{
+                    setId(id);
+                }}
+        );
+    }
+
+
+    public void disableUser(Long id) {
         repository.findById(id).ifPresentOrElse(
                 (user) -> {
                     user.setStatus(Status.DISABLED);

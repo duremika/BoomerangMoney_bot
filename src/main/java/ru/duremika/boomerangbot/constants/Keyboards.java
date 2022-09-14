@@ -24,6 +24,39 @@ public class Keyboards {
             .resizeKeyboard(true)
             .build();
 
+    public final static InlineKeyboardMarkup promotionInlineKeyboard = InlineKeyboardMarkup.builder()
+            .keyboardRow(List.of(
+                    new InlineKeyboardButton("\uD83D\uDC41 Пост") {{
+                        setCallbackData("post");
+                    }},
+                    new InlineKeyboardButton("\uD83D\uDC65 Канал") {{
+                        setCallbackData("channel");
+                    }}
+            ))
+            .keyboardRow(List.of(
+                    new InlineKeyboardButton("\uD83E\uDD16 Бота") {{
+                        setCallbackData("bot");
+                    }},
+                    new InlineKeyboardButton("\uD83D\uDC65 Группу") {{
+                        setCallbackData("group");
+                    }}
+            ))
+            .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDC40 Автопросмотры") {{
+                setCallbackData("auto views");
+            }}))
+            .keyboardRow(List.of(
+                    new InlineKeyboardButton("\uD83D\uDCCC Закреп") {{
+                        setCallbackData("pinned");
+                    }},
+                    new InlineKeyboardButton("✉️ Рассылка") {{
+                        setCallbackData("mailing");
+                    }}
+            ))
+            .keyboardRow(List.of(new InlineKeyboardButton("\uD83C\uDFAB Стать спонсором бонусов") {{
+                setCallbackData("bonus sponsor");
+            }}))
+            .build();
+
     public final static InlineKeyboardMarkup myOfficeInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(
                     new InlineKeyboardButton("\uD83D\uDCB3 Пополнить") {{

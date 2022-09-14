@@ -39,6 +39,24 @@ public class TelegramEventsHandler {
         userService.disableUser(id);
     }
 
+
+    SendMessage promotion(Long id) {
+        SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
+                .chatId(id);
+        userService.findUser(id).ifPresentOrElse(
+                user -> {
+                    String text = "\uD83D\uDCE2 Что вы хотите продвинуть?\n\n" +
+                            "\uD83D\uDCB3 Рекламный баланс: " + user.getBalance().getAdvertising() + "₽";
+
+                    sendMessageBuilder
+                            .text(text)
+                            .replyMarkup(Keyboards.promotionInlineKeyboard);
+                },
+                () -> sendMessageBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
+        );
+        return sendMessageBuilder.build();
+    }
+
     SendMessage myOffice(Long id) {
         SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
                 .chatId(id);

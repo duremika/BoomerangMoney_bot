@@ -7,6 +7,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 
 import java.util.List;
+import java.util.Random;
 
 public class Keyboards {
     public final static ReplyKeyboardMarkup mainReplyKeyboardMarkup = ReplyKeyboardMarkup.builder()
@@ -56,6 +57,35 @@ public class Keyboards {
                 setCallbackData("bonus sponsor");
             }}))
             .build();
+
+    public static InlineKeyboardMarkup captchaInlineKeyboard(int result) {
+        int[] buttons = generateButtonsForCaptcha(result);
+        return InlineKeyboardMarkup.builder()
+                .keyboardRow(List.of(
+                        new InlineKeyboardButton(String.valueOf(buttons[0])) {{
+                            setCallbackData(buttons[0]==result ? "captcha success" : "captcha fail");
+                        }},
+                        new InlineKeyboardButton(String.valueOf(buttons[1])) {{
+                            setCallbackData(buttons[1]==result ? "captcha success" : "captcha fail");
+                        }},
+                        new InlineKeyboardButton(String.valueOf(buttons[2])) {{
+                            setCallbackData(buttons[2]==result ? "captcha success" : "captcha fail");
+                        }}
+                )).build();
+    }
+
+    private static int[] generateButtonsForCaptcha(int result) {
+        int[] buttons = new int[3];
+        Random random = new Random();
+        int position = random.nextInt(3);
+        buttons[0] = position == 0 ? result :
+                position == 1 ? result - 1 : result - 2;
+        buttons[1] = position == 0 ? result + 1 :
+                position == 1 ? result : result - 1;
+        buttons[2] = position == 0 ? result + 2 :
+                position == 1 ? result + 1 : result;
+        return buttons;
+    }
 
     public final static InlineKeyboardMarkup myOfficeInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(

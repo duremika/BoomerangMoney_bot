@@ -6,6 +6,7 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageTe
 import ru.duremika.boomerangbot.constants.Keyboards;
 import ru.duremika.boomerangbot.exception.UserBannedException;
 
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 @Component
@@ -55,6 +56,65 @@ public class TelegramEventsHandler {
                 () -> sendMessageBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
         );
         return sendMessageBuilder.build();
+    }
+
+    SendMessage notInInfoChannel(Long id) {
+        return SendMessage.builder()
+                .chatId(id)
+                .text("❗️ Для использования бота подпишитесь на наш канал: [https://t.me/boomerang_money_info](t.me/boomerang_money_info)")
+                .parseMode("Markdown")
+                .build();
+    }
+
+    SendMessage hasNotPhoto(Long id) {
+        return SendMessage.builder()
+                .chatId(id)
+                .text("Для доступа к данному разделу \n" +
+                        "Вам необходимо установить **Фото профиля (аватарку)**\n" +
+                        "Инструкция: [Посмотреть!](https://telegra.ph/Kak-postavit-foto-profilya-04-25-2)")
+                .parseMode("Markdown")
+                .build();
+    }
+
+
+    SendMessage hasNotUsername(Long id) {
+        return SendMessage.builder()
+                .chatId(id)
+                .text("Для доступа к данному разделу \n" +
+                        "Вам необходимо установить **Имя пользователя (@username)**\n" +
+                        "Инструкция: [Посмотреть!](https://telegra.ph/Dobavlenie-UserName-04-25)")
+                .parseMode("Markdown")
+                .build();
+    }
+
+
+    SendMessage notInViewerChannel(Long id) {
+        return SendMessage.builder()
+                .chatId(id)
+                .text("\uD83D\uDE80 Для заработка подпишитесь на наш канал с просмотрами: [https://t.me/boomerang_money_viewer](t.me/boomerang_money_viewer)")
+                .parseMode("Markdown")
+                .build();
+    }
+
+    SendMessage captcha(Long id) {
+        ThreadLocalRandom threadLocalRandom = ThreadLocalRandom.current();
+        int x = threadLocalRandom.nextInt(1, 11);
+        int y = threadLocalRandom.nextInt(1, 11);
+        int result = x + y;
+        return SendMessage.builder()
+                .chatId(id)
+                .text("Для проверки, что вы не робот, решите пример:\n\n" +
+                       x + " + " + y + " =" )
+                .replyMarkup(Keyboards.captchaInlineKeyboard(result))
+                .build();
+    }
+
+    EditMessageText captchaFail(Long chatId, Integer messageId) {
+        return EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .text("❗️ Вы ошиблись!" )
+                .build();
     }
 
     SendMessage myOffice(Long id) {

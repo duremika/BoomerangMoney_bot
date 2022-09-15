@@ -111,7 +111,7 @@ public class Keyboards {
                                  }}
             ))
             .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD0A Новости") {{
-                                     setUrl("https://t.me/BotFather");
+                                     setUrl("https://t.me/boomerang_money_info");
                                  }}
             ))
             .keyboardRow(List.of(
@@ -134,7 +134,7 @@ public class Keyboards {
 
     public final static InlineKeyboardMarkup chatInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDCAC Чат \uD83C\uDDF7\uD83C\uDDFA") {{
-                setUrl("https://t.me/BotFather");
+                setUrl("https://t.me/boomerang_money_chat");
             }}))
             .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
                 setCallbackData("about bot");

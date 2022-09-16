@@ -3,11 +3,21 @@ package ru.duremika.boomerangbot.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
+import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
 import org.telegram.telegrambots.meta.api.methods.GetUserProfilePhotos;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatMember;
+import org.telegram.telegrambots.meta.api.objects.Chat;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import ru.duremika.boomerangbot.annotations.Filter;
 import ru.duremika.boomerangbot.config.BotConfig;
+
+import javax.annotation.PostConstruct;
+import java.io.Serializable;
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
 @Component
@@ -17,10 +27,24 @@ public class TelegramBot extends TelegramLongPollingBot {
     final String infoChannelId = "-1001697520335";
     final String viewerChannelId = "-1001718302900";
 
+    private final Map<String, Method> handlers = new HashMap<>();
+
     public TelegramBot(BotConfig config, TelegramEventsHandler eventsHandler) {
         this.config = config;
-
         this.eventsHandler = eventsHandler;
+    }
+
+    @PostConstruct
+    private void initializeMethods() {
+        for (Method method : eventsHandler.getClass().getDeclaredMethods()) {
+            if (method.isAnnotationPresent(Filter.class)) {
+                Filter filter = method.getAnnotation(Filter.class);
+                if (filter != null) {
+                    handlers.put(filter.value(), method);
+                }
+            }
+
+        }
     }
 
     @Override
@@ -35,9 +59,26 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        log.info(update.toString());
-        if ((update.hasMessage() && update.getMessage().getChat().getType().equals("private")) ||
-                (update.hasCallbackQuery() && update.getCallbackQuery().getMessage().getChat().getType().equals("private"))) {
+        final Message message;
+        final Chat chat;
+        final String text;
+
+        if (update.hasMessage()) {
+            message = update.getMessage();
+            chat = message.getChat();
+            text = message.getText();
+        } else if (update.hasCallbackQuery()) {
+            message = update.getCallbackQuery().getMessage();
+            chat = message.getChat();
+            text = update.getCallbackQuery().getData();
+        } else {
+            log.warn("Update was not processed:\n" + update);
+            return;
+        }
+        log.info("text: '" + text + "' " + message);
+
+        // TODO: need refactoring
+        if (message.getChat().getType().equals("private")) {
             if ((update.hasMyChatMember() && update.getMyChatMember().getNewChatMember().getStatus().equals("member")) ||
                     update.hasMessage() && update.getMessage().hasText() && update.getMessage().getText().equals("/start")) {
                 try {
@@ -49,16 +90,9 @@ public class TelegramBot extends TelegramLongPollingBot {
             } else if (update.hasMyChatMember() && update.getMyChatMember().getNewChatMember().getStatus().equals("kicked")) {
                 Long id = update.getMyChatMember().getChat().getId();
                 eventsHandler.goodbye(id);
-            } else if (update.hasMessage() && update.getMessage().hasText() && update.getMessage().getText().contains("\uD83D\uDCE2")) {
-                Long id = update.getMessage().getChatId();
-                try {
-                    execute(eventsHandler.promotion(id));
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
-            } else if (update.hasMessage() && update.getMessage().hasText() && update.getMessage().getText().contains("\uD83D\uDC68\u200D\uD83D\uDCBB")) {
-                Long uid = update.getMessage().getFrom().getId();
-                Long chatId = update.getMessage().getChatId();
+            } else if (message.getText().contains("\uD83D\uDC68\u200D\uD83D\uDCBB")) {
+                Long uid = message.getFrom().getId();
+                Long chatId = message.getChatId();
                 try {
                     if (execute(new GetChatMember(infoChannelId, uid)).getStatus().equals("left")) {
                         execute(eventsHandler.notInInfoChannel(chatId));
@@ -74,78 +108,23 @@ public class TelegramBot extends TelegramLongPollingBot {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
-            } else if (update.hasCallbackQuery() && update.getCallbackQuery().getData().equals("captcha fail")) {
-                Long chatId = update.getCallbackQuery().getMessage().getChatId();
-                Integer mId = update.getCallbackQuery().getMessage().getMessageId();
-                try {
-                    execute(eventsHandler.captchaFail(chatId, mId));
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
-            } else if (update.hasCallbackQuery() && update.getCallbackQuery().getData().equals("captcha success")) {
-                Long chatId = update.getCallbackQuery().getMessage().getChatId();
-                Integer mId = update.getCallbackQuery().getMessage().getMessageId();
-                try {
-                    log.info("success");
-                    execute(eventsHandler.captchaFail(chatId, mId));
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
-            } else if (update.hasMessage() && update.getMessage().hasText() && update.getMessage().getText().contains("\uD83D\uDCF1")) {
-                Long id = update.getMessage().getChatId();
-                try {
-                    execute(eventsHandler.myOffice(id));
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
-            } else if (update.hasMessage() && update.getMessage().hasText() && update.getMessage().getText().contains("\uD83D\uDCDA")) {
-                Long id = update.getMessage().getChatId();
-                try {
-                    execute(eventsHandler.aboutBot(id));
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
-            } else if (update.hasCallbackQuery() && update.getCallbackQuery().getData().equals("about bot")) {
-                Long chatId = update.getCallbackQuery().getMessage().getChatId();
-                Integer mId = update.getCallbackQuery().getMessage().getMessageId();
-                try {
-                    execute(eventsHandler.aboutBot(chatId, mId));
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
-            } else if (update.hasCallbackQuery() && update.getCallbackQuery().getData().equals("chat")) {
-                Long chatId = update.getCallbackQuery().getMessage().getChatId();
-                Integer mId = update.getCallbackQuery().getMessage().getMessageId();
-                try {
-                    execute(eventsHandler.chat(chatId, mId));
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
-            } else if (update.hasCallbackQuery() && update.getCallbackQuery().getData().equals("rules")) {
-                Long chatId = update.getCallbackQuery().getMessage().getChatId();
-                Integer mId = update.getCallbackQuery().getMessage().getMessageId();
-                try {
-                    execute(eventsHandler.rules(chatId, mId));
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
-            } else if (update.hasCallbackQuery() && update.getCallbackQuery().getData().equals("admin")) {
-                Long chatId = update.getCallbackQuery().getMessage().getChatId();
-                Integer mId = update.getCallbackQuery().getMessage().getMessageId();
-                try {
-                    execute(eventsHandler.administration(chatId, mId));
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
-            } else if (update.hasCallbackQuery() && update.getCallbackQuery().getData().equals("want bot")) {
-                Long chatId = update.getCallbackQuery().getMessage().getChatId();
-                Integer mId = update.getCallbackQuery().getMessage().getMessageId();
-                try {
-                    execute(eventsHandler.wantBot(chatId, mId));
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
             }
+        }
+
+
+        Method method = handlers.get(text);
+        if (method == null) {
+            log.warn("text: '" + text + "' not processed");
+            method = handlers.get("error");
+        }
+        String handlerChatType = method.getAnnotation(Filter.class).chatType().getType();
+        if (!handlerChatType.equals(chat.getType())) return;
+        try {
+            BotApiMethod<? extends Serializable> botApiMethod = (BotApiMethod<? extends Serializable>) method.invoke(eventsHandler, message);
+            log.info(String.valueOf(botApiMethod));
+            execute(botApiMethod);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }

@@ -3,6 +3,8 @@ package ru.duremika.boomerangbot.service;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
+import org.telegram.telegrambots.meta.api.objects.Message;
+import ru.duremika.boomerangbot.annotations.Filter;
 import ru.duremika.boomerangbot.constants.Keyboards;
 import ru.duremika.boomerangbot.exception.UserBannedException;
 
@@ -10,6 +12,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 @Component
+@SuppressWarnings("unused")
 public class TelegramEventsHandler {
     private final UserService userService;
 
@@ -18,6 +21,7 @@ public class TelegramEventsHandler {
     }
 
 
+    @Filter("/start")
     SendMessage welcome(Long id) {
         boolean isNewUser;
         try {
@@ -40,11 +44,11 @@ public class TelegramEventsHandler {
         userService.disableUser(id);
     }
 
-
-    SendMessage promotion(Long id) {
+    @Filter("\uD83D\uDCE2 Продвижение")
+    SendMessage promotion(Message message) {
         SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
-                .chatId(id);
-        userService.findUser(id).ifPresentOrElse(
+                .chatId(message.getChatId());
+        userService.findUser(message.getChatId()).ifPresentOrElse(
                 user -> {
                     String text = "\uD83D\uDCE2 Что вы хотите продвинуть?\n\n" +
                             "\uD83D\uDCB3 Рекламный баланс: " + user.getBalance().getAdvertising() + "₽";
@@ -104,23 +108,34 @@ public class TelegramEventsHandler {
         return SendMessage.builder()
                 .chatId(id)
                 .text("Для проверки, что вы не робот, решите пример:\n\n" +
-                       x + " + " + y + " =" )
+                        x + " + " + y + " =")
                 .replyMarkup(Keyboards.captchaInlineKeyboard(result))
                 .build();
     }
 
-    EditMessageText captchaFail(Long chatId, Integer messageId) {
+    @Filter("captcha success")
+    EditMessageText captchaSuccess(Message message) {
         return EditMessageText.builder()
-                .chatId(chatId)
-                .messageId(messageId)
-                .text("❗️ Вы ошиблись!" )
+                .chatId(message.getChatId())
+                .messageId(message.getMessageId())
+                .text("❗️ Вы ошиблись!")
                 .build();
     }
 
-    SendMessage myOffice(Long id) {
+    @Filter("captcha fail")
+    EditMessageText captchaFail(Message message) {
+        return EditMessageText.builder()
+                .chatId(message.getChatId())
+                .messageId(message.getMessageId())
+                .text("❗️ Вы ошиблись!")
+                .build();
+    }
+
+    @Filter("\uD83D\uDCF1 Мой кабинет")
+    SendMessage myOffice(Message message) {
         SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
-                .chatId(id);
-        userService.findUser(id).ifPresentOrElse(
+                .chatId(message.getChatId());
+        userService.findUser(message.getChatId()).ifPresentOrElse(
                 user -> {
                     long delta = System.currentTimeMillis() - user.getCreatedAt().getTime();
                     long days = TimeUnit.DAYS.convert(delta, TimeUnit.MILLISECONDS);
@@ -161,36 +176,40 @@ public class TelegramEventsHandler {
         return sendMessageBuilder.build();
     }
 
-    SendMessage aboutBot(Long id) {
+    @Filter("\uD83D\uDCDA О боте")
+    SendMessage aboutBot(Message message) {
         return SendMessage.builder()
-                .chatId(id)
+                .chatId(message.getChatId())
                 .text("\uD83D\uDCDA Информация о нашем боте:")
                 .replyMarkup(Keyboards.aboutBotInlineKeyboard)
                 .build();
     }
 
-    EditMessageText aboutBot(Long chatId, Integer messageId) {
+    @Filter("about bot")
+    EditMessageText aboutBotByCallback(Message message) {
         return EditMessageText.builder()
-                .chatId(chatId)
-                .messageId(messageId)
+                .chatId(message.getChatId())
+                .messageId(message.getMessageId())
                 .text("\uD83D\uDCDA Информация о нашем боте:")
                 .replyMarkup(Keyboards.aboutBotInlineKeyboard)
                 .build();
     }
 
-    EditMessageText chat(Long chatId, Integer messageId) {
+    @Filter("chat")
+    EditMessageText chat(Message message) {
         return EditMessageText.builder()
-                .chatId(chatId)
-                .messageId(messageId)
+                .chatId(message.getChatId())
+                .messageId(message.getMessageId())
                 .text("❤️ Чтобы перейти в чат, нажмите ссылку ниже:")
                 .replyMarkup(Keyboards.chatInlineKeyboard)
                 .build();
     }
 
-    EditMessageText rules(Long chatId, Integer messageId) {
+    @Filter("rules")
+    EditMessageText rules(Message message) {
         return EditMessageText.builder()
-                .chatId(chatId)
-                .messageId(messageId)
+                .chatId(message.getChatId())
+                .messageId(message.getMessageId())
                 .text("⚠️Используя данный бот, вы автоматически соглашаетесь с " +
                         "правилами которые описаны ниже по ссылке, любые ваши " +
                         "операции и действия на проекте расцениваются " +
@@ -202,11 +221,11 @@ public class TelegramEventsHandler {
                 .build();
     }
 
-
-    EditMessageText administration(Long chatId, Integer messageId) {
+    @Filter("admin")
+    EditMessageText administration(Message message) {
         return EditMessageText.builder()
-                .chatId(chatId)
-                .messageId(messageId)
+                .chatId(message.getChatId())
+                .messageId(message.getMessageId())
                 .text("⚠️ Обращаться к администратору в случае:\n\n" +
                         "1. Если обнаружен баг (ошибка).\n" +
                         "2. У вас есть деловое предложение.\n" +
@@ -216,14 +235,22 @@ public class TelegramEventsHandler {
                 .build();
     }
 
-    EditMessageText wantBot(Long chatId, Integer messageId) {
+    @Filter("want bot")
+    EditMessageText wantBot(Message message) {
         return EditMessageText.builder()
-                .chatId(chatId)
-                .messageId(messageId)
+                .chatId(message.getChatId())
+                .messageId(message.getMessageId())
                 .text("⚠️ Если вы хотите заказать бот, напишите разработчикам, кнопка ниже:")
                 .replyMarkup(Keyboards.wantBotInlineKeyboard)
                 .build();
     }
 
 
+    @Filter("error")
+    SendMessage error(Message message) {
+        return SendMessage.builder()
+                .chatId(message.getChatId())
+                .text("\uD83E\uDD28")
+                .build();
+    }
 }

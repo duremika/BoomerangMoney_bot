@@ -6,7 +6,6 @@ import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageTe
 import org.telegram.telegrambots.meta.api.objects.Message;
 import ru.duremika.boomerangbot.annotations.Filter;
 import ru.duremika.boomerangbot.constants.Keyboards;
-import ru.duremika.boomerangbot.exception.UserBannedException;
 
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -21,27 +20,31 @@ public class TelegramEventsHandler {
     }
 
 
-    @Filter("/start")
-    SendMessage welcome(Long id) {
-        boolean isNewUser;
-        try {
-            isNewUser = userService.createOrUpdateUser(id);
-        } catch (UserBannedException e) {
-            return SendMessage.builder()
-                    .chatId(id)
-                    .text("Вы заблокированны")
-                    .build();
+    @Filter({"member", "/start"})
+    SendMessage welcome(Message message) {
+        EnabledStatus status = userService.enableUser(message.getChatId());
+        SendMessage.SendMessageBuilder messageBuilder = SendMessage.builder().chatId(message.getChatId());
+        switch (status) {
+            case NEW_USER:
+                messageBuilder
+                        .text("✅ Отлично!\nВы зарегистрированы!")
+                        .replyMarkup(Keyboards.mainReplyKeyboardMarkup);
+                return messageBuilder.build();
+            case DISABLED_USER:
+                messageBuilder
+                        .text("✋ С возвращением")
+                        .replyMarkup(Keyboards.mainReplyKeyboardMarkup);
+                return messageBuilder.build();
+            case BANNED_USER:
+                return messageBuilder.text("Вы заблокированны").build();
+            default:
+                return null;
         }
-        String text = isNewUser ? "✅ Отлично!\nВы зарегистрированы!" : "✋ С возвращением";
-        return SendMessage.builder()
-                .chatId(id)
-                .text(text)
-                .replyMarkup(Keyboards.mainReplyKeyboardMarkup)
-                .build();
     }
 
-    void goodbye(Long id) {
-        userService.disableUser(id);
+    @Filter("kicked")
+    void goodbye(Message message) {
+        userService.disableUser(message.getChatId());
     }
 
     @Filter("\uD83D\uDCE2 Продвижение")
@@ -113,16 +116,7 @@ public class TelegramEventsHandler {
                 .build();
     }
 
-    @Filter("captcha success")
-    EditMessageText captchaSuccess(Message message) {
-        return EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
-                .text("❗️ Вы ошиблись!")
-                .build();
-    }
-
-    @Filter("captcha fail")
+    @Filter({"captcha fail", "captcha success"})
     EditMessageText captchaFail(Message message) {
         return EditMessageText.builder()
                 .chatId(message.getChatId())

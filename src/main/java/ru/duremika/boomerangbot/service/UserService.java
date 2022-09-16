@@ -3,7 +3,6 @@ package ru.duremika.boomerangbot.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.duremika.boomerangbot.entities.*;
-import ru.duremika.boomerangbot.exception.UserBannedException;
 import ru.duremika.boomerangbot.repository.UserRepository;
 
 import java.sql.Timestamp;
@@ -19,29 +18,32 @@ public class UserService {
         this.repository = repository;
     }
 
-    public Optional<User> findUser(Long id){
+    public Optional<User> findUser(Long id) {
         return repository.findById(id);
     }
 
-    public boolean createOrUpdateUser(Long id) throws UserBannedException {
+    public EnabledStatus enableUser(Long id) {
         Optional<User> optionalUser = repository.findById(id);
         User user;
         if (optionalUser.isEmpty()) {
             user = createNewUser(id);
             repository.save(user);
-            log.info("New user created:\n" + user);
-            return true;
+            log.info("New user created: " + user);
+            return EnabledStatus.NEW_USER;
         } else {
             user = optionalUser.get();
-            if (user.getStatus().equals(Status.BANNED)) {
-                log.info("User banned:\n" + user);
-                throw new UserBannedException();
-            } else if (!user.isEnabled()) {
+            if (user.getStatus().equals(Status.BANNED)){
+                log.info("User banned: " + user);
+                return EnabledStatus.BANNED_USER;
+            } else if (!user.isEnabled()){
                 user.setEnabled(true);
                 repository.save(user);
-                log.info("User already exists:\n" + user);
+                log.info("User enabled: " + user);
+                return EnabledStatus.DISABLED_USER;
+            } else {
+                log.info("User already enabled: " + user);
+                return EnabledStatus.ENABLED_USER;
             }
-            return false;
         }
     }
 

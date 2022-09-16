@@ -9,7 +9,6 @@ import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatMem
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
-import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.duremika.boomerangbot.annotations.Filter;
 import ru.duremika.boomerangbot.config.BotConfig;
 
@@ -40,7 +39,9 @@ public class TelegramBot extends TelegramLongPollingBot {
             if (method.isAnnotationPresent(Filter.class)) {
                 Filter filter = method.getAnnotation(Filter.class);
                 if (filter != null) {
-                    handlers.put(filter.value(), method);
+                    for (String value: filter.value()) {
+                        handlers.put(value, method);
+                    }
                 }
             }
 
@@ -71,26 +72,21 @@ public class TelegramBot extends TelegramLongPollingBot {
             message = update.getCallbackQuery().getMessage();
             chat = message.getChat();
             text = update.getCallbackQuery().getData();
+        } else if (update.hasMyChatMember()) {
+            chat = update.getMyChatMember().getChat();
+            message = new Message() {{
+                setChat(chat);
+            }};
+            text = update.getMyChatMember().getNewChatMember().getStatus();
         } else {
-            log.warn("Update was not processed:\n" + update);
+            log.warn("Update was not processed: " + update);
             return;
         }
         log.info("text: '" + text + "' " + message);
 
         // TODO: need refactoring
-        if (message.getChat().getType().equals("private")) {
-            if ((update.hasMyChatMember() && update.getMyChatMember().getNewChatMember().getStatus().equals("member")) ||
-                    update.hasMessage() && update.getMessage().hasText() && update.getMessage().getText().equals("/start")) {
-                try {
-                    Long id = update.getMyChatMember().getChat().getId();
-                    execute(eventsHandler.welcome(id));
-                } catch (TelegramApiException e) {
-                    e.printStackTrace();
-                }
-            } else if (update.hasMyChatMember() && update.getMyChatMember().getNewChatMember().getStatus().equals("kicked")) {
-                Long id = update.getMyChatMember().getChat().getId();
-                eventsHandler.goodbye(id);
-            } else if (message.getText().contains("\uD83D\uDC68\u200D\uD83D\uDCBB")) {
+        if (chat.getType().equals("private")) {
+             if (message.hasText() && message.getText().contains("\uD83D\uDC68\u200D\uD83D\uDCBB")) {
                 Long uid = message.getFrom().getId();
                 Long chatId = message.getChatId();
                 try {
@@ -108,6 +104,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
+                return;
             }
         }
 
@@ -120,9 +117,14 @@ public class TelegramBot extends TelegramLongPollingBot {
         String handlerChatType = method.getAnnotation(Filter.class).chatType().getType();
         if (!handlerChatType.equals(chat.getType())) return;
         try {
-            BotApiMethod<? extends Serializable> botApiMethod = (BotApiMethod<? extends Serializable>) method.invoke(eventsHandler, message);
-            log.info(String.valueOf(botApiMethod));
-            execute(botApiMethod);
+            Object invoke = method.invoke(eventsHandler, message);
+            if (invoke instanceof BotApiMethod) {
+                BotApiMethod<? extends Serializable> botApiMethod =
+                        (BotApiMethod<? extends Serializable>) method.invoke(eventsHandler, message);
+                if (botApiMethod == null) return;
+                log.info(String.valueOf(botApiMethod));
+                execute(botApiMethod);
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }

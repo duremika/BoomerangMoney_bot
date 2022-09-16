@@ -20,16 +20,16 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Status status;
 
-    @ElementCollection
-    @CollectionTable(name = "achievement_list")
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "achievement_list", joinColumns=@JoinColumn(name="user_id"))
     private Set<Integer> achievementList;
 
-    @ManyToOne(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
+    @OneToOne(cascade = CascadeType.ALL)
     private Tasks tasks;
 
-    @ManyToOne(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
+    @OneToOne(cascade = CascadeType.ALL)
     private Balance balance;
 
-    @ManyToOne(fetch = FetchType.EAGER, cascade = CascadeType.MERGE)
+    @OneToOne(cascade = CascadeType.ALL)
     private Earned earned;
 }

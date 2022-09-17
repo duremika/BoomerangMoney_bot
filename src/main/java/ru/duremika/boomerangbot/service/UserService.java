@@ -5,8 +5,6 @@ import org.springframework.stereotype.Service;
 import ru.duremika.boomerangbot.entities.*;
 import ru.duremika.boomerangbot.repository.UserRepository;
 
-import java.sql.Timestamp;
-import java.util.HashSet;
 import java.util.Optional;
 
 @Slf4j
@@ -26,7 +24,7 @@ public class UserService {
         Optional<User> optionalUser = repository.findById(id);
         User user;
         if (optionalUser.isEmpty()) {
-            user = createNewUser(id);
+            user = new User(id);
             repository.save(user);
             log.info("New user created: " + user);
             return EnabledStatus.NEW_USER;
@@ -45,25 +43,6 @@ public class UserService {
                 return EnabledStatus.ENABLED_USER;
             }
         }
-    }
-
-    User createNewUser(Long id) {
-        return new User(
-                id,
-                true,
-                new Timestamp(System.currentTimeMillis()),
-                Status.INACTIVE,
-                new HashSet<>(),
-                new Tasks() {{
-                    setId(id);
-                }},
-                new Balance() {{
-                    setId(id);
-                }},
-                new Earned() {{
-                    setId(id);
-                }}
-        );
     }
 
     public void disableUser(Long id) {

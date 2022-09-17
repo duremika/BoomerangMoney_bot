@@ -4,12 +4,12 @@ import lombok.*;
 
 import javax.persistence.*;
 import java.sql.Timestamp;
+import java.util.HashSet;
 import java.util.Set;
 
 @Data
 @Entity
 @NoArgsConstructor
-@AllArgsConstructor
 @Table(name = "users")
 public class User {
     @Id
@@ -24,12 +24,27 @@ public class User {
     @CollectionTable(name = "achievement_list", joinColumns=@JoinColumn(name="user_id"))
     private Set<Integer> achievementList;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    @PrimaryKeyJoinColumn
     private Tasks tasks;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    @PrimaryKeyJoinColumn
     private Balance balance;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    @PrimaryKeyJoinColumn
     private Earned earned;
+
+
+    public User(Long id){
+        this.id = id;
+        this.enabled =true;
+        this.createdAt = new Timestamp(System.currentTimeMillis());
+        this.status = Status.INACTIVE;
+        this.achievementList = new HashSet<>();
+        this.tasks = new Tasks(id, this);
+        this.balance = new Balance(id, this);
+        this.earned = new Earned(id, this);
+    }
 }

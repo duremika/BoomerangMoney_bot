@@ -10,7 +10,6 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.junit4.SpringRunner;
 import ru.duremika.boomerangbot.entities.Status;
 import ru.duremika.boomerangbot.entities.User;
-import ru.duremika.boomerangbot.exception.UserBannedException;
 import ru.duremika.boomerangbot.repository.UserRepository;
 
 import java.util.Optional;
@@ -25,49 +24,59 @@ class UserServiceTest {
 
 
     @Test
-    void createUser() throws UserBannedException {
-        Long notExistsId = -1L;
+    void enableNewUser() {
+        Long id = -1L;
         Optional<User> emptyOptionalUser = Optional.empty();
-        Mockito.when(mockRepository.findById(notExistsId)).thenReturn(emptyOptionalUser);
+        Mockito.when(mockRepository.findById(id)).thenReturn(emptyOptionalUser);
 
-        boolean isNew = userService.createOrUpdateUser(notExistsId);
-        Assert.assertTrue(isNew);
+        EnabledStatus enabledStatus = userService.enableUser(id);
+        Assert.assertEquals(EnabledStatus.NEW_USER, enabledStatus );
         Mockito.verify(mockRepository, Mockito.times(1)).save(Mockito.any());
     }
 
     @Test
-    void updateBannedUser() {
-        Long existsId = 111L;
-        Optional<User> existsBannedOptionalUser = Optional.of(userService.createNewUser(existsId));
+    void enableBannedUser() {
+        Long id = 111L;
+        Optional<User> existsBannedOptionalUser = Optional.of(new User(id));
         existsBannedOptionalUser.get().setStatus(Status.BANNED);
-        Mockito.when(mockRepository.findById(existsId)).thenReturn(existsBannedOptionalUser);
-        try {
-            userService.createOrUpdateUser(existsId);
-            Assert.fail();
-        } catch (UserBannedException e){
-            Assert.assertTrue(true);
-        }
+        Mockito.when(mockRepository.findById(id)).thenReturn(existsBannedOptionalUser);
+
+        EnabledStatus enabledStatus = userService.enableUser(id);
+        Assert.assertEquals(EnabledStatus.BANNED_USER, enabledStatus);
+        Mockito.verify(mockRepository, Mockito.never()).save(Mockito.any());
     }
 
     @Test
-    void updateDisabledUser() throws UserBannedException {
-        Long existsId = 112L;
-        Optional<User> existsDisabledOptionalUser = Optional.of(userService.createNewUser(existsId));
+    void enableDisabledUser() {
+        Long id = 112L;
+        Optional<User> existsDisabledOptionalUser = Optional.of(new User(id));
         existsDisabledOptionalUser.get().setEnabled(false);
-        Mockito.when(mockRepository.findById(existsId)).thenReturn(existsDisabledOptionalUser);
+        Mockito.when(mockRepository.findById(id)).thenReturn(existsDisabledOptionalUser);
 
-        boolean isNew = userService.createOrUpdateUser(existsId);
-        Assert.assertFalse(isNew);
+        EnabledStatus enabledStatus = userService.enableUser(id);
+        Assert.assertEquals(EnabledStatus.DISABLED_USER, enabledStatus);
         Assert.assertTrue(existsDisabledOptionalUser.get().isEnabled());
         Mockito.verify(mockRepository, Mockito.times(1)).save(existsDisabledOptionalUser.get());
     }
 
     @Test
+    void enableEnabledUser() {
+        Long id = 111L;
+        Optional<User> existsEnabledOptionalUser = Optional.of(new User(id));
+        existsEnabledOptionalUser.get().setEnabled(true);
+        Mockito.when(mockRepository.findById(id)).thenReturn(existsEnabledOptionalUser);
+
+        EnabledStatus enabledStatus = userService.enableUser(id);
+        Assert.assertEquals(EnabledStatus.ENABLED_USER, enabledStatus);
+        Mockito.verify(mockRepository, Mockito.never()).save(Mockito.any());
+    }
+
+    @Test
     void disableUser() {
-        Long existsId = 113L;
-        Optional<User> optionalUser = Optional.of(userService.createNewUser(existsId));
-        Mockito.when(mockRepository.findById(existsId)).thenReturn(optionalUser);
-        userService.disableUser(existsId);
+        Long id = 113L;
+        Optional<User> optionalUser = Optional.of(new User(id));
+        Mockito.when(mockRepository.findById(id)).thenReturn(optionalUser);
+        userService.disableUser(id);
         Assert.assertFalse(optionalUser.get().isEnabled());
         Mockito.verify(mockRepository, Mockito.times(1)).save(optionalUser.get());
 

@@ -1,5 +1,6 @@
 package ru.duremika.boomerangbot.service;
 
+import lombok.Setter;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
@@ -14,6 +15,8 @@ import java.util.concurrent.TimeUnit;
 @SuppressWarnings("unused")
 public class TelegramEventsHandler {
     private final UserService userService;
+    @Setter
+    private TelegramBot bot;
 
     public TelegramEventsHandler(UserService userService) {
         this.userService = userService;
@@ -45,6 +48,29 @@ public class TelegramEventsHandler {
     @Filter("kicked")
     void goodbye(Message message) {
         userService.disableUser(message.getChatId());
+    }
+
+    @Filter("\uD83D\uDC68\u200D\uD83D\uDCBB Заработать")
+    SendMessage earn(Message message) {
+        Long uid = message.getFrom().getId();
+        Long chatId = message.getChatId();
+
+        try {
+            if (bot.checkSubscribeToInfoChannel(uid)) {
+                return notInInfoChannel(chatId);
+            } else if (bot.checkProfilePhoto(uid)) {
+                return hasNotPhoto(chatId);
+            } else if (message.getFrom().getUserName() == null) {
+                return hasNotUsername(chatId);
+            } else if (bot.checkSubscribeToViewsChannel(uid)) {
+                return notInViewerChannel(chatId);
+            } else {
+                return captcha(chatId);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     @Filter("\uD83D\uDCE2 Продвижение")

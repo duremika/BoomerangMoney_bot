@@ -12,4 +12,7 @@ public class BotConfig {
 
     @Value("${bot.token}")
     private String token;
+
+    private final String infoChannelId = "-1001697520335";
+    private final String viewsChannelId = "-1001718302900";
 }

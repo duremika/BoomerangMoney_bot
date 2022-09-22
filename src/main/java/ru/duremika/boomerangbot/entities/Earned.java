@@ -12,9 +12,9 @@ import javax.persistence.*;
 public class Earned {
     @Id
     private Long user_id;
-    private int total;
-    private int frozen;
-    private int await;
+    private float total;
+    private float frozen;
+    private float await;
 
     @OneToOne
     @MapsId

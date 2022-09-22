@@ -8,5 +8,5 @@ spring:
       ddl-auto: update
     show-sql: true
 bot:
-  name: BoomerangMoney_bot
+  name: boomerang_money_bot
   token: ${BOOMERANG_BOT_TOKEN}

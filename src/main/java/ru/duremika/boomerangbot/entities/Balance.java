@@ -12,11 +12,11 @@ import javax.persistence.*;
 public class Balance {
     @Id
     private Long user_id;
-    private int main;
-    private int advertising;
-    private int toppedUp;
-    private int spent;
-    private int output;
+    private float main;
+    private float advertising;
+    private float toppedUp;
+    private float spent;
+    private float output;
 
     @OneToOne
     @MapsId

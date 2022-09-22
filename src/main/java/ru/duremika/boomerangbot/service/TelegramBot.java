@@ -4,8 +4,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
 import org.telegram.telegrambots.meta.api.methods.GetUserProfilePhotos;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatMember;
+import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -23,11 +25,13 @@ import java.util.Map;
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
     private final BotConfig config;
+    private final UserService userService;
     TelegramEventsHandler eventsHandler;
     private final Map<String, Method> handlers;
 
-    public TelegramBot(BotConfig config, TelegramEventsHandler eventsHandler) {
+    public TelegramBot(BotConfig config, UserService userService, TelegramEventsHandler eventsHandler) {
         this.config = config;
+        this.userService = userService;
         eventsHandler.setBot(this);
         this.eventsHandler = eventsHandler;
         handlers = new HashMap<>();
@@ -81,8 +85,20 @@ public class TelegramBot extends TelegramLongPollingBot {
             if (invoke instanceof BotApiMethod) {
                 BotApiMethod<? extends Serializable> botApiMethod =
                         (BotApiMethod<? extends Serializable>) invoke;
+                String text = message.getText();
                 log.info("executing: " + botApiMethod);
                 execute(botApiMethod);
+
+                if (tryParseInt(text) != null) {
+                    String lastMessage = userService.getLastMessage(message.getChatId());
+                    userService.saveLastMessage(message.getChatId(), lastMessage + " " + text);
+                } else  {
+                    log.info(message.toString());
+                    log.info(update.toString());
+                    Chat chat = message.getChat();
+                    Long id = chat != null && chat.getType().equals("private") ? message.getChatId() : message.getFrom().getId();
+                    userService.saveLastMessage(id, text);
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -93,10 +109,18 @@ public class TelegramBot extends TelegramLongPollingBot {
         Message message;
         if (update.hasMessage()) {
             message = update.getMessage();
+            if (message.getText() == null) {
+                if (message.getForwardFromChat() != null) {
+                    message.setText("forward");
+                }
+            }
         } else if (update.hasCallbackQuery()) {
             message = update.getCallbackQuery().getMessage();
             message.setText(update.getCallbackQuery().getData());
-            return message;
+            if (message.getText().contains("/")){
+                message.setFrom(update.getCallbackQuery().getFrom());
+                message.setCaption(update.getCallbackQuery().getId()); // TODO need refactoring
+            }
         } else if (update.hasMyChatMember()) {
             message = new Message();
             message.setChat(update.getMyChatMember().getChat());
@@ -109,10 +133,18 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private Method getSuitableMethod(Message message) throws MessageHandlerException {
-        Method method = handlers.get(message.getText());
+        String text = message.getText();
+        Method method = handlers.get(text);
         if (method == null) {
-            log.warn("for text: '" + message.getText() + "' no suitable method");
-            method = handlers.get("error");
+            Integer number = tryParseInt(text);
+            if (number != null) {
+                method = handlers.get("number");
+            } else if (text.contains("/")) {
+                method = handlers.get("post_viewed");
+            }else {
+                log.warn("for text: '" + text + "' no suitable method");
+                method = handlers.get("error");
+            }
         }
         String handlerChatType = method.getAnnotation(Filter.class).chatType().getType();
         String chatType = message.getChat().getType();
@@ -120,6 +152,14 @@ public class TelegramBot extends TelegramLongPollingBot {
             throw new MessageHandlerException();
         }
         return method;
+    }
+
+    private Integer tryParseInt(String text) {
+        try {
+            return Integer.parseInt(text);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     boolean checkSubscribeToInfoChannel(Long userId) throws TelegramApiException {
@@ -132,5 +172,21 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     boolean checkSubscribeToViewsChannel(Long userId) throws TelegramApiException {
         return execute(new GetChatMember(config.getViewsChannelId(), userId)).getStatus().equals("left");
+    }
+
+    public void promotePosts(Message message, String amount) {
+        String viewsChannelId = config.getViewsChannelId();
+        String infoChannelId = config.getInfoChannelId();
+
+        String fromChatId = message.getChatId().toString();
+        Integer messageId = message.getMessageId();
+
+        try {
+            execute(new ForwardMessage(viewsChannelId, fromChatId, messageId));
+            execute(eventsHandler.viewPostChecker(message, viewsChannelId));
+            execute(eventsHandler.addTaskToInfoChannel(message, amount, infoChannelId));
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+        }
     }
 }

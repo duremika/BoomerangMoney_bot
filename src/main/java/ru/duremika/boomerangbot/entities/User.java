@@ -4,7 +4,9 @@ import lombok.*;
 
 import javax.persistence.*;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 @Data
@@ -16,6 +18,7 @@ public class User {
     private Long id;
     private boolean enabled;
     private Timestamp createdAt;
+    private String lastMessage;
 
     @Enumerated(EnumType.STRING)
     private Status status;
@@ -24,9 +27,9 @@ public class User {
     @CollectionTable(name = "achievement_list", joinColumns=@JoinColumn(name="user_id"))
     private Set<Integer> achievementList;
 
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
-    @PrimaryKeyJoinColumn
-    private Tasks tasks;
+    @OneToMany(mappedBy = "user")
+    @ToString.Exclude
+    private List<Task> tasks;
 
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     @PrimaryKeyJoinColumn
@@ -36,6 +39,10 @@ public class User {
     @PrimaryKeyJoinColumn
     private Earned earned;
 
+    @OneToMany(mappedBy = "author", fetch = FetchType.EAGER)
+    @ToString.Exclude
+    private List<Order> orders;
+
 
     public User(Long id){
         this.id = id;
@@ -43,7 +50,7 @@ public class User {
         this.createdAt = new Timestamp(System.currentTimeMillis());
         this.status = Status.INACTIVE;
         this.achievementList = new HashSet<>();
-        this.tasks = new Tasks(id, this);
+        this.tasks = new ArrayList<>();
         this.balance = new Balance(id, this);
         this.earned = new Earned(id, this);
     }

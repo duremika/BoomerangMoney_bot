@@ -235,6 +235,50 @@ public class TelegramEventsHandler implements Handler {
                 .build();
     }
 
+    @Filter("active_post_orders")
+    SendMessage activePostOrders(Message message) {
+        String text = "\uD83D\uDC41 Ваши активные заказы на просмотры:\n";
+        List<Order> activeOrderList = orderService.getActiveUserOrders(orderService.getUserOrders(new User(message.getChatId())));
+        if (activeOrderList.size() == 0) {
+            text += "\n\uD83D\uDE1E У Вас нет ни одного активного заказа на просмотры";
+        } else {
+            for (Order order : activeOrderList) {
+                text += "\n▫️ [https://t.me/" + order.getId() + "](https://t.me/" + order.getId() + ") - " +
+                        "Выполнено: " + order.getPerformed() + " из " + order.getAmount() + " раз";
+            }
+        }
+
+        return SendMessage.builder()
+                .chatId(message.getChatId())
+                .text(text)
+                .parseMode(ParseMode.MARKDOWN)
+                .disableWebPagePreview(true)
+                .build();
+    }
+
+    @Filter("completed_post_orders")
+    SendMessage completedPostOrders(Message message) {
+        String text = "\uD83D\uDC41 Ваши 10 последних, завершённых заказов на просмотры:\n";
+        List<Order> activeOrderList = orderService.getCompletedUserOrders(orderService.getUserOrders(new User(message.getChatId())));
+        if (activeOrderList.size() == 0) {
+            text += "\n\uD83D\uDE1E У Вас нет ни одного завершённого заказа на просмотры";
+        } else {
+            int start = activeOrderList.size() <= 10 ? 0 : activeOrderList.size() - 11;
+            for (int i = 0; i<activeOrderList.size(); i++) {
+                Order order = activeOrderList.get(i);
+                text += "\n▫️ [https://t.me/" + order.getId() + "](https://t.me/" + order.getId() + ")\n" +
+                        "Выполнено: " + order.getPerformed() + " из " + order.getAmount() + " раз";
+            }
+        }
+
+        return SendMessage.builder()
+                .chatId(message.getChatId())
+                .text(text)
+                .parseMode(ParseMode.MARKDOWN)
+                .disableWebPagePreview(true)
+                .build();
+    }
+
     SendMessage amountPosts(Message message) {
         int amount = Integer.parseInt(message.getText());
         SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()

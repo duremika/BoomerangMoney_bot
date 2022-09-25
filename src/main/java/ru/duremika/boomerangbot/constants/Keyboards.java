@@ -64,9 +64,9 @@ public class Keyboards {
                 setCallbackData("add_post");
             }}))
             .keyboardRow(List.of(new InlineKeyboardButton("⏱ Активные заказы") {{
-                setCallbackData("active_orders");
+                setCallbackData("active_post_orders");
             }}, new InlineKeyboardButton("✅ Завершённые заказы") {{
-                setCallbackData("completed_orders");
+                setCallbackData("completed_post_orders");
             }}))
             .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
                 setCallbackData("promotion");

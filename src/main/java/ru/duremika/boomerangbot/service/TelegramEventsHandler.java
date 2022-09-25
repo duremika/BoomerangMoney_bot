@@ -1,16 +1,19 @@
 package ru.duremika.boomerangbot.service;
 
-import lombok.Setter;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
+import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
 import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Message;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
-import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.duremika.boomerangbot.annotations.ChatType;
 import ru.duremika.boomerangbot.annotations.Filter;
+import ru.duremika.boomerangbot.annotations.Handler;
+import ru.duremika.boomerangbot.config.BotConfig;
 import ru.duremika.boomerangbot.constants.Keyboards;
 import ru.duremika.boomerangbot.entities.Order;
 import ru.duremika.boomerangbot.entities.Task;
@@ -25,19 +28,12 @@ import java.util.concurrent.TimeUnit;
 
 @Component
 @SuppressWarnings({"unused", "UnusedReturnValue"})
-public class TelegramEventsHandler {
+public class TelegramEventsHandler implements Handler {
     private final UserService userService;
     private final OrderService orderService;
     private final TaskService taskService;
-
-    @Setter
-    private TelegramBot bot;
-
-    public TelegramEventsHandler(UserService userService, OrderService orderService, TaskService taskService) {
-        this.userService = userService;
-        this.orderService = orderService;
-        this.taskService = taskService;
-    }
+    private final TelegramBot bot;
+    private final BotConfig config;
 
     DecimalFormat decimalFormat = new DecimalFormat("#.##");
 
@@ -45,6 +41,13 @@ public class TelegramEventsHandler {
     int minPostOrderAmount = 50;
     float postViewPrice = 0.03f;
 
+    public TelegramEventsHandler(UserService userService, OrderService orderService, TaskService taskService, @Lazy TelegramBot bot, BotConfig config) {
+        this.userService = userService;
+        this.orderService = orderService;
+        this.taskService = taskService;
+        this.bot = bot;
+        this.config = config;
+    }
 
     @Filter({"member", "/start"})
     SendMessage welcome(Message message) {
@@ -198,7 +201,6 @@ public class TelegramEventsHandler {
                 .messageId(message.getMessageId())
                 .parseMode(ParseMode.MARKDOWN);
         List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
-
         int amountActiveOrders = orderService.getActiveUserOrders(orderList).size();
         int amountCompletedOrders = orderService.getCompletedUserOrders(orderList).size();
         userService.findUser(message.getChatId()).ifPresentOrElse(
@@ -261,6 +263,27 @@ public class TelegramEventsHandler {
     SendMessage promotePosts(Message message, String amount) {
         String[] lastMessage = userService.getLastMessage(message.getChatId()).split(" ");
         String callbackData = message.getForwardFromChat().getUserName() + "/" + message.getMessageId();
+
+
+        float writeOfAmount = Integer.parseInt(amount) * postOrderPrice;
+
+        String viewsChannelId = config.getViewsChannelId();
+        String infoChannelId = config.getInfoChannelId();
+
+        String fromChatId = message.getChatId().toString();
+        Integer messageId = message.getMessageId();
+
+
+        Message messageInViewChannel;
+        Message messageInInfoChannel;
+        try {
+            bot.execute(new ForwardMessage(viewsChannelId, fromChatId, messageId));
+            messageInViewChannel = bot.execute(PostPromoter.viewPostChecker(message, viewsChannelId));
+            messageInInfoChannel = bot.execute(PostPromoter.addTaskToInfoChannel(message, amount, infoChannelId));
+        } catch (TelegramApiException e) {
+            throw new RuntimeException(e);
+        }
+
         User userDB = userService.findUser(message.getFrom().getId()).get();
         Order order = new Order();
         order.setId(callbackData);
@@ -268,11 +291,13 @@ public class TelegramEventsHandler {
         order.setAmount(Integer.parseInt(lastMessage[1]));
         order.setType(Order.Type.POST);
         order.setTasks(new ArrayList<>());
+
+        order.setMidInInfoChannel(messageInInfoChannel.getMessageId());
+        order.setMidInViewsChannel(messageInViewChannel.getMessageId());
+
         userDB.getOrders().add(order);
         orderService.add(order);
 
-        float writeOfAmount = Integer.parseInt(amount) * postOrderPrice;
-        bot.promotePosts(message, amount);
         SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
                 .chatId(message.getChatId());
         userService.findUser(message.getChatId()).ifPresentOrElse(
@@ -287,28 +312,6 @@ public class TelegramEventsHandler {
                 () -> sendMessageBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
         );
         return sendMessageBuilder.build();
-    }
-
-    SendMessage viewPostChecker(Message message, String chatId) {
-        String callbackData = message.getForwardFromChat().getUserName() + "/" + message.getMessageId();
-        return SendMessage.builder()
-                .text("Для начисления нажмите на кнопку:")
-                .chatId(chatId)
-                .replyMarkup(InlineKeyboardMarkup.builder()
-                        .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDCB0 +" + decimalFormat.format(postViewPrice) + "₽") {{
-                            setCallbackData(callbackData);
-                        }}))
-                        .build()
-                )
-                .build();
-    }
-
-    public SendMessage addTaskToInfoChannel(Message message, String amount, String chatId) {
-        return SendMessage.builder()
-                .text("\uD83D\uDE80 Доступно новое задание на " + amount + " просмотров")
-                .chatId(chatId)
-                .replyMarkup(Keyboards.addPostToInfoChannelInlineKeyboard)
-                .build();
     }
 
     @Filter(value = "post_viewed", chatType = ChatType.CHANNEL)
@@ -326,7 +329,8 @@ public class TelegramEventsHandler {
             return answer.text("Задание недоступно")
                     .build();
         }
-        Task task = taskService.getTaskByOrderId(message.getText());
+        User user = new User(message.getFrom().getId());
+        Task task = taskService.getTaskByOrderId(message.getText(), user);
         if (task != null) {
             return answer.text("Вы уже просматривали этот пост\n\n" +
                             "\uD83D\uDCB3 Осталось просморов: " + availableViews +
@@ -336,13 +340,33 @@ public class TelegramEventsHandler {
 
         task = new Task();
         task.setOrder(order);
-        task.setUser(new User(message.getFrom().getId()));
+        task.setUser(user);
         order.setPerformed(order.getPerformed() + 1);
+        if (order.getPerformed() >= order.getAmount()) {
+            try {
+                bot.execute(SendMessage.builder()
+                        .chatId(order.getAuthor().getId())
+                        .text("✅Ваш заказ на " + order.getAmount() + " просмотров поста [https://t.me/" + order.getId() + "](https://t.me/" + order.getId() + ") выполнен!")
+                        .parseMode(ParseMode.MARKDOWN)
+                        .disableWebPagePreview(false)
+                        .build());
+                bot.execute(DeleteMessage.builder()
+                        .chatId(config.getViewsChannelId())
+                        .messageId(order.getMidInViewsChannel())
+                        .build());
+                bot.execute(DeleteMessage.builder()
+                        .chatId(config.getInfoChannelId())
+                        .messageId(order.getMidInInfoChannel())
+                        .build());
+            } catch (TelegramApiException e) {
+                throw new RuntimeException(e);
+            }
+        }
         orderService.add(order);
         taskService.add(task);
         userService.replenishMainBalance(message.getFrom().getId(), postViewPrice);
         return answer.text("\uD83D\uDC41 За просмотр поста вам начисленно " + decimalFormat.format(postViewPrice) + "₽\n\n" +
-                        "\uD83D\uDCB3 Осталось просморов: " + availableViews +
+                        "\uD83D\uDCB3 Осталось просморов: " + --availableViews +
                         "\n\uD83D\uDCB0 Деньги зачисленны на баланс в боте: @" + bot.getBotUsername())
                 .build();
     }
@@ -461,7 +485,6 @@ public class TelegramEventsHandler {
                 .build();
     }
 
-
     @Filter("error")
     SendMessage error(Message message) {
         return SendMessage.builder()
@@ -498,6 +521,4 @@ public class TelegramEventsHandler {
                 return error(message);
         }
     }
-
-
 }

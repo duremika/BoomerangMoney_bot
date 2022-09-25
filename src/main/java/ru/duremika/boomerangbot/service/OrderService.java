@@ -29,7 +29,7 @@ public class OrderService {
 
     public List<Order> getCompletedUserOrders(List<Order> orders){
         return orders.stream()
-                .filter(order -> order.getAmount() < order.getPerformed())
+                .filter(order -> order.getAmount() <= order.getPerformed())
                 .collect(Collectors.toList());
     }
 

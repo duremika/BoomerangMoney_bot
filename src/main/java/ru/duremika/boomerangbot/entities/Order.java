@@ -16,6 +16,9 @@ public class Order {
     private int amount;
     private int performed;
 
+    private int midInInfoChannel;
+    private int midInViewsChannel;
+
     @Enumerated(EnumType.STRING)
     private Type type;
 

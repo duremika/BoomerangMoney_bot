@@ -1,6 +1,8 @@
 package ru.duremika.boomerangbot.entities;
 
 import lombok.*;
+import org.hibernate.annotations.LazyCollection;
+import org.hibernate.annotations.LazyCollectionOption;
 
 import javax.persistence.*;
 import java.sql.Timestamp;
@@ -28,6 +30,7 @@ public class User {
     private Set<Integer> achievementList;
 
     @OneToMany(mappedBy = "user")
+    @LazyCollection(LazyCollectionOption.FALSE)
     @ToString.Exclude
     private List<Task> tasks;
 

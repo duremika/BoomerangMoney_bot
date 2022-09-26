@@ -109,6 +109,20 @@ public class Keyboards {
             }}))
             .build();
 
+    public final static InlineKeyboardMarkup channelInlineKeyboard = InlineKeyboardMarkup.builder()
+            .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDCE2 Добавить канал") {{
+                setCallbackData("add_channel");
+            }}))
+            .keyboardRow(List.of(new InlineKeyboardButton("⏱ Активные заказы") {{
+                setCallbackData("active_channel_orders");
+            }}, new InlineKeyboardButton("✅ Завершённые заказы") {{
+                setCallbackData("completed_channel_orders");
+            }}))
+            .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
+                setCallbackData("promotion");
+            }}))
+            .build();
+
 
     public static InlineKeyboardMarkup captchaInlineKeyboard(int result) {
         int[] buttons = generateButtonsForCaptcha(result);

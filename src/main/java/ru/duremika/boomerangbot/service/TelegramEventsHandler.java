@@ -21,10 +21,12 @@ import ru.duremika.boomerangbot.entities.User;
 
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Component
 @SuppressWarnings({"unused", "UnusedReturnValue"})
@@ -243,8 +245,12 @@ public class TelegramEventsHandler implements Handler {
                 .messageId(message.getMessageId())
                 .parseMode(ParseMode.MARKDOWN);
         List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
-        int amountActiveOrders = orderService.getActiveUserOrders(orderList).size();
-        int amountCompletedOrders = orderService.getCompletedUserOrders(orderList).size();
+        long amountActiveOrders = orderList.stream()
+                .filter(order -> order.getAmount() > order.getPerformed() && order.getType().equals(Order.Type.POST))
+                .count();
+        long amountCompletedOrders = orderList.stream()
+                .filter(order -> order.getAmount() <= order.getPerformed() && order.getType().equals(Order.Type.POST))
+                .count();
         userService.findUser(message.getChatId()).ifPresentOrElse(
                 user -> {
                     float advertisingBalance = user.getBalance().getAdvertising();
@@ -280,7 +286,13 @@ public class TelegramEventsHandler implements Handler {
     @Filter("active_post_orders")
     SendMessage activePostOrders(Message message) {
         String text = "\uD83D\uDC41 Ваши активные заказы на просмотры:\n";
-        List<Order> activeOrderList = orderService.getActiveUserOrders(orderService.getUserOrders(new User(message.getChatId())));
+        List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
+        List<Order> activeOrderList = orderList.stream()
+                .filter(order -> order.getAmount() > order.getPerformed() && order.getType().equals(Order.Type.POST))
+                .sorted(Comparator.comparingInt(Order::getMidInViewsChannel))
+                .collect(Collectors.toList());
+
+
         if (activeOrderList.size() == 0) {
             text += "\n\uD83D\uDE1E У Вас нет ни одного активного заказа на просмотры";
         } else {
@@ -301,13 +313,18 @@ public class TelegramEventsHandler implements Handler {
     @Filter("completed_post_orders")
     SendMessage completedPostOrders(Message message) {
         String text = "\uD83D\uDC41 Ваши 10 последних, завершённых заказов на просмотры:\n";
-        List<Order> activeOrderList = orderService.getCompletedUserOrders(orderService.getUserOrders(new User(message.getChatId())));
-        if (activeOrderList.size() == 0) {
+        List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
+        List<Order> completedOrderList = orderList.stream()
+                .filter(order -> order.getAmount() <= order.getPerformed() && order.getType().equals(Order.Type.POST))
+                .sorted(Comparator.comparingInt(Order::getMidInViewsChannel))
+                .collect(Collectors.toList());
+
+        if (completedOrderList.size() == 0) {
             text += "\n\uD83D\uDE1E У Вас нет ни одного завершённого заказа на просмотры";
         } else {
-            int start = activeOrderList.size() <= 10 ? 0 : activeOrderList.size() - 11;
-            for (int i = 0; i < activeOrderList.size(); i++) {
-                Order order = activeOrderList.get(i);
+            int start = completedOrderList.size() <= 10 ? 0 : completedOrderList.size() - 11;
+            for (int i = 0; i < completedOrderList.size(); i++) {
+                Order order = completedOrderList.get(i);
                 text += "\n▫️ [https://t.me/" + order.getId() + "](https://t.me/" + order.getId() + ")\n" +
                         "Выполнено: " + order.getPerformed() + " из " + order.getAmount() + " раз";
             }
@@ -454,6 +471,98 @@ public class TelegramEventsHandler implements Handler {
         return answer.text("\uD83D\uDC41 За просмотр поста вам начисленно " + decimalFormat.format(postViewPrice) + "₽\n\n" +
                         "\uD83D\uDCB3 Осталось просморов: " + --availableViews +
                         "\n\uD83D\uDCB0 Деньги зачисленны на баланс в боте: @" + bot.getBotUsername())
+                .build();
+    }
+
+    @Filter("channel")
+    EditMessageText channel(Message message) {
+        EditMessageText.EditMessageTextBuilder editMessageTextBuilder = EditMessageText.builder()
+                .chatId(message.getChatId())
+                .messageId(message.getMessageId())
+                .parseMode(ParseMode.MARKDOWN);
+        List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
+        long amountActiveOrders = orderList.stream()
+                .filter(order -> order.getAmount() > order.getPerformed() && order.getType().equals(Order.Type.CHANNEL))
+                .count();
+        long amountCompletedOrders = orderList.stream()
+                .filter(order -> order.getAmount() <= order.getPerformed() && order.getType().equals(Order.Type.CHANNEL))
+                .count();
+        userService.findUser(message.getChatId()).ifPresentOrElse(
+                user -> {
+                    float advertisingBalance = user.getBalance().getAdvertising();
+                    String text = "\uD83D\uDCE2 **Наш бот предлагает Вам возможность накрутки подписчиков на Ваш ПУБЛИЧНЫЙ и ПРИВАТНЫЙ**\n\n" +
+                            " \uD83C\uDF81АКЦИЯ При заказе от:\n" +
+                            " **500** подписок **+25** в подарок!\n" +
+                            " **1000** подписок **+100** в подарок!\n" +
+                            " **2000** просмотров **+300** в подарок!\n" +
+                            " **5000** просмотров **+1000** в подарок!\n\n" +
+                            "\uD83D\uDC64 1 подписчик - **" + decimalFormat.format(postOrderPrice) + "₽**\n" +
+                            "\uD83D\uDCB3 Рекламный баланс - " + decimalFormat.format(advertisingBalance) + "₽\n" +
+                            "\uD83D\uDCCA Его хватит на " + (int) (advertisingBalance / postOrderPrice) + " просмотров\n\n" +
+                            "⏱ Активных заказов: " + amountActiveOrders +
+                            "\n✅ Завершённых заказов: " + amountCompletedOrders +
+                            "\n\n❗️ Наш бот @" + config.getBotName() + " должен быть администратором продвигаемого канала";
+                    editMessageTextBuilder
+                            .text(text)
+                            .replyMarkup(Keyboards.channelInlineKeyboard);
+                },
+                () -> editMessageTextBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
+        );
+        return editMessageTextBuilder.build();
+    }
+
+    @Filter("active_channel_orders")
+    SendMessage activeChannelOrders(Message message) {
+        String text = "\uD83D\uDC41 Ваши активные заказы на подписки:\n";
+        List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
+        List<Order> activeOrderList = orderList.stream()
+                .filter(order -> order.getAmount() > order.getPerformed() && order.getType().equals(Order.Type.CHANNEL))
+                .sorted(Comparator.comparingInt(Order::getMidInViewsChannel))
+                .collect(Collectors.toList());
+
+
+        if (activeOrderList.size() == 0) {
+            text += "\n\uD83D\uDE1E У Вас нет ни одного активного заказа на подписки";
+        } else {
+            for (Order order : activeOrderList) {
+                text += "\n▫️ [https://t.me/" + order.getId() + "](https://t.me/" + order.getId() + ") - " +
+                        "Выполнено: " + order.getPerformed() + " из " + order.getAmount() + " раз";
+            }
+        }
+
+        return SendMessage.builder()
+                .chatId(message.getChatId())
+                .text(text)
+                .parseMode(ParseMode.MARKDOWN)
+                .disableWebPagePreview(true)
+                .build();
+    }
+
+    @Filter("completed_channel_orders")
+    SendMessage completedChannelOrders(Message message) {
+        String text = "\uD83D\uDC41 Ваши 10 последних, завершённых заказов на подписки:\n";
+        List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
+        List<Order> completedOrderList = orderList.stream()
+                .filter(order -> order.getAmount() <= order.getPerformed() && order.getType().equals(Order.Type.CHANNEL))
+                .sorted(Comparator.comparingInt(Order::getMidInViewsChannel))
+                .collect(Collectors.toList());
+
+        if (completedOrderList.size() == 0) {
+            text += "\n\uD83D\uDE1E У Вас нет ни одного завершённого заказа на подписки";
+        } else {
+            int start = completedOrderList.size() <= 10 ? 0 : completedOrderList.size() - 11;
+            for (int i = 0; i < completedOrderList.size(); i++) {
+                Order order = completedOrderList.get(i);
+                text += "\n▫️ [https://t.me/" + order.getId() + "](https://t.me/" + order.getId() + ")\n" +
+                        "Выполнено: " + order.getPerformed() + " из " + order.getAmount() + " раз";
+            }
+        }
+
+        return SendMessage.builder()
+                .chatId(message.getChatId())
+                .text(text)
+                .parseMode(ParseMode.MARKDOWN)
+                .disableWebPagePreview(true)
                 .build();
     }
 

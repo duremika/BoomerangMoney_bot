@@ -35,11 +35,21 @@ public class TelegramEventsHandler implements Handler {
     private final TelegramBot bot;
     private final BotConfig config;
 
-    DecimalFormat decimalFormat = new DecimalFormat("#.##");
+    final DecimalFormat decimalFormat = new DecimalFormat("#.##");
 
-    float postOrderPrice = 0.05f;
-    int minPostOrderAmount = 50;
-    float postViewPrice = 0.03f;
+    public final static float postOrderPrice = 0.05f;
+    public final static int minPostOrderAmount = 50;
+    public final static float postViewPrice = 0.03f;
+
+    public final static float channelSubscribePrice = 0.2f;
+
+    public final static float groupJoinPrice = 0.3f;
+
+    public final static float botStartPrice = 0.15f;
+
+    public final static int inviteFriend = 1;
+
+    public final static float bonusPrice = 0.021f;
 
     public TelegramEventsHandler(UserService userService, OrderService orderService, TaskService taskService, @Lazy TelegramBot bot, BotConfig config) {
         this.userService = userService;
@@ -148,12 +158,44 @@ public class TelegramEventsHandler implements Handler {
                 .build();
     }
 
-    @Filter({"captcha_fail", "captcha_success"})
+    @Filter("captcha_fail")
     EditMessageText captchaFail(Message message) {
         return EditMessageText.builder()
                 .chatId(message.getChatId())
                 .messageId(message.getMessageId())
                 .text("❗️ Вы ошиблись!")
+                .build();
+    }
+
+    @Filter("captcha_success")
+    EditMessageText earnCaptchaSuccess(Message message) {
+        Long userId = message.getChatId();
+        List<Order> availableOrders = orderService.getAvailableOrders(userId);
+
+        long availablePostOrders = availableOrders.stream().filter(o -> o.getType().equals(Order.Type.POST)).count();
+        long availableChannelOrders = availableOrders.stream().filter(o -> o.getType().equals(Order.Type.CHANNEL)).count();
+        long availableGroupOrders = availableOrders.stream().filter(o -> o.getType().equals(Order.Type.GROUP)).count();
+        long availableBotOrders = availableOrders.stream().filter(o -> o.getType().equals(Order.Type.BOT)).count();
+        long availableExtendedOrders = availableOrders.stream().filter(o -> o.getType().equals(Order.Type.EXTENDED_TASK)).count();
+
+        double allAvailableAmountToEarn =
+                availablePostOrders * postViewPrice +
+                        availableChannelOrders * channelSubscribePrice +
+                        availableGroupOrders * groupJoinPrice +
+                        availableBotOrders * botStartPrice;
+
+        String text = "\uD83D\uDCB0 Вы можете заработать: " + decimalFormat.format(allAvailableAmountToEarn) +
+                "₽\n\n\uD83D\uDC41 Заданий на просмотр: " + availablePostOrders +
+                "\n\uD83D\uDCE2 Заданий на подписку: " + availableChannelOrders +
+                "\n\uD83D\uDC64 Заданий на группы: " + availableGroupOrders +
+                "\n\uD83E\uDD16 Заданий на боты: " + availableGroupOrders +
+                "\n♻️ Доп. заработок: " + availableExtendedOrders +
+                "\n\n\uD83D\uDD14Выбери способ заработка\uD83D\uDC47";
+        return EditMessageText.builder()
+                .chatId(message.getChatId())
+                .messageId(message.getMessageId())
+                .text(text)
+                .replyMarkup(Keyboards.earnInlineKeyboard)
                 .build();
     }
 
@@ -264,7 +306,7 @@ public class TelegramEventsHandler implements Handler {
             text += "\n\uD83D\uDE1E У Вас нет ни одного завершённого заказа на просмотры";
         } else {
             int start = activeOrderList.size() <= 10 ? 0 : activeOrderList.size() - 11;
-            for (int i = 0; i<activeOrderList.size(); i++) {
+            for (int i = 0; i < activeOrderList.size(); i++) {
                 Order order = activeOrderList.get(i);
                 text += "\n▫️ [https://t.me/" + order.getId() + "](https://t.me/" + order.getId() + ")\n" +
                         "Выполнено: " + order.getPerformed() + " из " + order.getAmount() + " раз";

@@ -5,6 +5,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMar
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
+import ru.duremika.boomerangbot.service.TelegramEventsHandler;
 
 import java.util.List;
 import java.util.Random;
@@ -25,6 +26,41 @@ public class Keyboards {
             ))
             .resizeKeyboard(true)
             .build();
+
+    public final static InlineKeyboardMarkup earnInlineKeyboard = InlineKeyboardMarkup.builder()
+            .keyboardRow(List.of(
+                    new InlineKeyboardButton("\uD83E\uDD16 Перейти в бота +" + TelegramEventsHandler.botStartPrice + "₽") {{
+                        setCallbackData("earn_bot");
+                    }}
+            ))
+            .keyboardRow(List.of(
+                    new InlineKeyboardButton("\uD83D\uDCE2 Подписаться на канал +" + TelegramEventsHandler.channelSubscribePrice + "₽") {{
+                        setCallbackData("earn_channel");
+                    }}
+            ))
+            .keyboardRow(List.of(
+                    new InlineKeyboardButton("\uD83D\uDC64 Вступить в группу +" + TelegramEventsHandler.groupJoinPrice + "₽") {{
+                        setCallbackData("earn_group");
+                    }}
+            ))
+            .keyboardRow(List.of(
+                    new InlineKeyboardButton("\uD83D\uDC41 Смотреть посты +" + TelegramEventsHandler.postViewPrice + "₽") {{
+                        setUrl("https://t.me/boomerang_money_viewer");
+                    }}
+            ))
+            .keyboardRow(List.of(
+                    new InlineKeyboardButton("\uD83D\uDE4B\uD83C\uDFFB\u200D♂️ Пригласить друга +" + TelegramEventsHandler.inviteFriend + "₽") {{
+                        setCallbackData("earn_invite");
+                    }}
+            ))
+            .keyboardRow(List.of(
+                    new InlineKeyboardButton("\uD83D\uDD0E Доп. задания") {{
+                        setCallbackData("earn_additional");
+                    }},
+                    new InlineKeyboardButton("\uD83C\uDF81 Бонус +" + TelegramEventsHandler.bonusPrice + "₽") {{
+                        setCallbackData("earn_bonus");
+                    }}
+            )).build();
 
     public final static InlineKeyboardMarkup promotionInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(

@@ -40,6 +40,10 @@ public class OrderService {
         return repository.getAllByAuthor(author);
     }
 
+    public List<Order> getAvailableOrders(Long id){
+        return repository.getOrdersByPerformedLessThanAmount(id);
+    }
+
     public void add(Order order) {
         repository.save(order);
     }

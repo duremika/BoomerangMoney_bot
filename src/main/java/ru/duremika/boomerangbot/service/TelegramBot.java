@@ -4,10 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
-import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
 import org.telegram.telegrambots.meta.api.methods.GetUserProfilePhotos;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatMember;
-import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
@@ -102,8 +100,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                     Chat chat = message.getChat();
                     Long id =
                             chat != null && chat.getType().equals("private") ?
-                            message.getChatId() :
-                            message.getFrom().getId();
+                                    message.getChatId() :
+                                    message.getFrom().getId();
                     userService.saveLastMessage(id, text);
                 }
             }
@@ -116,10 +114,9 @@ public class TelegramBot extends TelegramLongPollingBot {
         Message message;
         if (update.hasMessage()) {
             message = update.getMessage();
-            if (message.getText() == null) {
-                if (message.getForwardFromChat() != null) {
-                    message.setText("forward");
-                }
+            if (message.getForwardFromChat() != null) {
+                message.setText("forward");
+
             }
         } else if (update.hasCallbackQuery()) {
             message = update.getCallbackQuery().getMessage();
@@ -135,6 +132,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         } else {
             throw new MessageHandlerException("update was not processed: " + update);
         }
+        message.setEntities(null);
         log.info("text: '" + message.getText() + "' " + message);
         return message;
     }

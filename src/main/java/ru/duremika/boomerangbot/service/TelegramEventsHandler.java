@@ -4,10 +4,14 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
+import org.telegram.telegrambots.meta.api.methods.GetMe;
 import org.telegram.telegrambots.meta.api.methods.ParseMode;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChat;
+import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatAdministrators;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
+import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.duremika.boomerangbot.annotations.ChatType;
@@ -43,6 +47,9 @@ public class TelegramEventsHandler implements Handler {
     public final static int minPostOrderAmount = 50;
     public final static float postViewPrice = 0.03f;
 
+
+    public final static float channelOrderPrice = 0.25f;
+    public final static int minChannelOrderAmount = 2;
     public final static float channelSubscribePrice = 0.2f;
 
     public final static float groupJoinPrice = 0.3f;
@@ -123,7 +130,7 @@ public class TelegramEventsHandler implements Handler {
         return SendMessage.builder()
                 .chatId(id)
                 .text("Для доступа к данному разделу \n" +
-                        "Вам необходимо установить **Фото профиля (аватарку)**\n" +
+                        "Вам необходимо установить *Фото профиля (аватарку)*\n" +
                         "Инструкция: [Посмотреть!](https://telegra.ph/Kak-postavit-foto-profilya-04-25-2)")
                 .parseMode(ParseMode.MARKDOWN)
                 .build();
@@ -133,7 +140,7 @@ public class TelegramEventsHandler implements Handler {
         return SendMessage.builder()
                 .chatId(id)
                 .text("Для доступа к данному разделу \n" +
-                        "Вам необходимо установить **Имя пользователя (@username)**\n" +
+                        "Вам необходимо установить *Имя пользователя (@username)*\n" +
                         "Инструкция: [Посмотреть!](https://telegra.ph/Dobavlenie-UserName-04-25)")
                 .parseMode(ParseMode.MARKDOWN)
                 .build();
@@ -254,13 +261,13 @@ public class TelegramEventsHandler implements Handler {
         userService.findUser(message.getChatId()).ifPresentOrElse(
                 user -> {
                     float advertisingBalance = user.getBalance().getAdvertising();
-                    String text = "\uD83D\uDC41 **Наш бот предлагает Вам возможность накрутки просмотров на любые посты**\n\n" +
+                    String text = "\uD83D\uDC41 *Наш бот предлагает Вам возможность накрутки просмотров на любые посты*\n\n" +
                             " \uD83C\uDF81АКЦИЯ При заказе от:\n" +
-                            " **1000** просмотров **+50** в подарок!\n" +
-                            " **2000** просмотров **+200** в подарок!\n" +
-                            " **5000** просмотров **+750** в подарок!\n" +
-                            " **10000** просмотров **+2000** в подарок!\n\n" +
-                            "\uD83D\uDC41 1 просмотр - **" + decimalFormat.format(postOrderPrice) + "₽**\n" +
+                            " *1000* просмотров *+50* в подарок!\n" +
+                            " *2000* просмотров *+200* в подарок!\n" +
+                            " *5000* просмотров *+750* в подарок!\n" +
+                            " *10000* просмотров *+2000* в подарок!\n\n" +
+                            "\uD83D\uDC41 1 просмотр - *" + decimalFormat.format(postOrderPrice) + "₽*\n" +
                             "\uD83D\uDCB3 Рекламный баланс - " + decimalFormat.format(advertisingBalance) + "₽\n" +
                             "\uD83D\uDCCA Его хватит на " + (int) (advertisingBalance / postOrderPrice) + " просмотров\n\n" +
                             "⏱ Активных заказов: " + amountActiveOrders +
@@ -284,7 +291,7 @@ public class TelegramEventsHandler implements Handler {
     }
 
     @Filter("active_post_orders")
-    SendMessage activePostOrders(Message message) {
+    EditMessageText activePostOrders(Message message) {
         String text = "\uD83D\uDC41 Ваши активные заказы на просмотры:\n";
         List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
         List<Order> activeOrderList = orderList.stream()
@@ -302,8 +309,9 @@ public class TelegramEventsHandler implements Handler {
             }
         }
 
-        return SendMessage.builder()
+        return EditMessageText.builder()
                 .chatId(message.getChatId())
+                .messageId(message.getMessageId())
                 .text(text)
                 .parseMode(ParseMode.MARKDOWN)
                 .disableWebPagePreview(true)
@@ -311,7 +319,7 @@ public class TelegramEventsHandler implements Handler {
     }
 
     @Filter("completed_post_orders")
-    SendMessage completedPostOrders(Message message) {
+    EditMessageText completedPostOrders(Message message) {
         String text = "\uD83D\uDC41 Ваши 10 последних, завершённых заказов на просмотры:\n";
         List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
         List<Order> completedOrderList = orderList.stream()
@@ -330,8 +338,9 @@ public class TelegramEventsHandler implements Handler {
             }
         }
 
-        return SendMessage.builder()
+        return EditMessageText.builder()
                 .chatId(message.getChatId())
+                .messageId(message.getMessageId())
                 .text(text)
                 .parseMode(ParseMode.MARKDOWN)
                 .disableWebPagePreview(true)
@@ -344,7 +353,8 @@ public class TelegramEventsHandler implements Handler {
                 .chatId(message.getChatId());
         if (amount < minPostOrderAmount) {
             sendMessageBuilder.text("❗️Ошибка❗️\n\n" +
-                    "Минимальный заказ - " + minPostOrderAmount + " просмотров");
+                            "Минимальный заказ - " + minPostOrderAmount + " просмотров")
+                    .replyMarkup(Keyboards.toMainInlineKeyboard);
             return sendMessageBuilder.build();
         }
 
@@ -358,7 +368,8 @@ public class TelegramEventsHandler implements Handler {
                     "❗️ Недостаточно средств на балансе! Введите другое число:");
         } else {
             sendMessageBuilder.text(amount + " просмотров ✖️ " + decimalFormat.format(postOrderPrice) + " копейки = " + decimalFormat.format(amount * postOrderPrice) + " рублей\n\n" +
-                    "\uD83D\uDCAC Для запуска задания перешлите пост, который нуждается в продвижении:");
+                            "\uD83D\uDCAC *Для запуска задания перешлите пост, который нуждается в продвижении:*")
+                    .parseMode(ParseMode.MARKDOWN);
         }
         return sendMessageBuilder.build();
     }
@@ -490,20 +501,21 @@ public class TelegramEventsHandler implements Handler {
         userService.findUser(message.getChatId()).ifPresentOrElse(
                 user -> {
                     float advertisingBalance = user.getBalance().getAdvertising();
-                    String text = "\uD83D\uDCE2 **Наш бот предлагает Вам возможность накрутки подписчиков на Ваш ПУБЛИЧНЫЙ и ПРИВАТНЫЙ**\n\n" +
+                    String text = "\uD83D\uDCE2 *Наш бот предлагает Вам возможность накрутки подписчиков на Ваш ПУБЛИЧНЫЙ и ПРИВАТНЫЙ*\n\n" +
                             " \uD83C\uDF81АКЦИЯ При заказе от:\n" +
-                            " **500** подписок **+25** в подарок!\n" +
-                            " **1000** подписок **+100** в подарок!\n" +
-                            " **2000** просмотров **+300** в подарок!\n" +
-                            " **5000** просмотров **+1000** в подарок!\n\n" +
-                            "\uD83D\uDC64 1 подписчик - **" + decimalFormat.format(postOrderPrice) + "₽**\n" +
+                            " *500* подписок *+25* в подарок!\n" +
+                            " *1000* подписок *+100* в подарок!\n" +
+                            " *2000* просмотров *+300* в подарок!\n" +
+                            " *5000* просмотров *+1000* в подарок!\n\n" +
+                            "\uD83D\uDC64 1 подписчик - *" + decimalFormat.format(channelOrderPrice) + "₽*\n" +
                             "\uD83D\uDCB3 Рекламный баланс - " + decimalFormat.format(advertisingBalance) + "₽\n" +
-                            "\uD83D\uDCCA Его хватит на " + (int) (advertisingBalance / postOrderPrice) + " просмотров\n\n" +
+                            "\uD83D\uDCCA Его хватит на " + (int) (advertisingBalance / channelOrderPrice) + " просмотров\n\n" +
                             "⏱ Активных заказов: " + amountActiveOrders +
                             "\n✅ Завершённых заказов: " + amountCompletedOrders +
-                            "\n\n❗️ Наш бот @" + config.getBotName() + " должен быть администратором продвигаемого канала";
+                            "\n\n❗️ Наш бот @[" + bot.getBotUsername() + "] должен быть администратором продвигаемого канала";
                     editMessageTextBuilder
                             .text(text)
+                            .parseMode(ParseMode.MARKDOWN)
                             .replyMarkup(Keyboards.channelInlineKeyboard);
                 },
                 () -> editMessageTextBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
@@ -511,8 +523,86 @@ public class TelegramEventsHandler implements Handler {
         return editMessageTextBuilder.build();
     }
 
+    @Filter("add_channel")
+    EditMessageText addChannel(Message message) {
+        return EditMessageText.builder()
+                .chatId(message.getChatId())
+                .messageId(message.getMessageId())
+                .text("\uD83D\uDCDD Введите количество подписчиков:")
+                .build();
+    }
+
+    SendMessage amountChannelSubscriber(Message message) {
+        int amount = Integer.parseInt(message.getText());
+        SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
+                .chatId(message.getChatId());
+        if (amount < minChannelOrderAmount) {
+            sendMessageBuilder.text("❗️Ошибка❗️\n\n" +
+                            "Минимальный заказ - " + minChannelOrderAmount + " подписчиков")
+                    .replyMarkup(Keyboards.toMainInlineKeyboard);
+            return sendMessageBuilder.build();
+        }
+
+        Optional<User> optionalUser = userService.findUser(message.getChatId());
+        if (optionalUser.isEmpty()) {
+            return sendMessageBuilder.text("Что то пошло не так. Попробуйте перезапустить бота").build();
+        }
+        float advertisingBalance = optionalUser.get().getBalance().getAdvertising();
+        if (amount * channelOrderPrice > advertisingBalance) {
+            sendMessageBuilder.text(amount + " просмотров ✖️ " + decimalFormat.format(channelOrderPrice) + " ₽ = " + decimalFormat.format(amount * channelOrderPrice) + " рублей\n\n" +
+                    "❗️ Недостаточно средств на балансе! Введите другое число:");
+        } else {
+            sendMessageBuilder.text(amount + " просмотров ✖️ " + decimalFormat.format(channelOrderPrice) + " ₽ = " + decimalFormat.format(amount * channelOrderPrice) + " рублей\n\n" +
+                    "\uD83D\uDCAC Для запуска задания добавьте нашего бота @" + bot.getBotUsername() + " в администраторы Вашего канала, а затем перешлите любое сообщение из этого канала\n\n" +
+                    "⚠️ Канал может быть ПУБЛИЧНЫМ и ПРИВАТНЫМ, не удаляйте бота из админов до конца раскрутки!");
+        }
+        return sendMessageBuilder.build();
+    }
+
+    SendMessage promoteChannel(Message message, String amount) {
+        Long chatId = message.getFrom().getId();
+        String channelId = message.getForwardFromChat().getId().toString();
+        try {
+            var me = bot.execute(new GetMe());
+            boolean botIsAdmin = bot.execute(new GetChatAdministrators(channelId)).stream()
+                    .anyMatch(chatMember -> chatMember.getUser().equals(me));
+            Chat chat = bot.execute(new GetChat(channelId));
+            if (botIsAdmin && chat.getInviteLink() != null) {
+                return SendMessage.builder()
+                        .text("❗️Ошибка❗️\n\n" +
+                                "Проверьте, является ли наш бот администратором Вашего канала?")
+                        .chatId(chatId)
+                        .build();
+            }
+
+        } catch (TelegramApiException e) {
+            System.out.println(e.getMessage());
+            return SendMessage.builder()
+                    .text("❗️Ошибка❗️\n\n" +
+                            "Проверьте, является ли наш бот администратором Вашего канала?")
+                    .chatId(chatId)
+                    .build();
+        }
+        float writeOfAmount = Integer.parseInt(amount) * channelOrderPrice;
+        SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
+                .chatId(message.getChatId());
+        userService.findUser(message.getChatId()).ifPresentOrElse(
+                user -> {
+                    userService.writeOfFromAdvertising(user.getId(), writeOfAmount);
+                    String text = "✅ Канал добавлен! ✅\n\n" +
+                            "\uD83D\uDCB8 С Вашего баланса списано " + decimalFormat.format(writeOfAmount) + "₽\n\n" +
+                            "♻️ В случае отписки пользователем от Вашего канала Вы получите компенсацию на рекламный баланс в полном размере";
+
+                    sendMessageBuilder
+                            .text(text);
+                },
+                () -> sendMessageBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
+        );
+        return sendMessageBuilder.build();
+    }
+
     @Filter("active_channel_orders")
-    SendMessage activeChannelOrders(Message message) {
+    EditMessageText activeChannelOrders(Message message) {
         String text = "\uD83D\uDC41 Ваши активные заказы на подписки:\n";
         List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
         List<Order> activeOrderList = orderList.stream()
@@ -530,8 +620,9 @@ public class TelegramEventsHandler implements Handler {
             }
         }
 
-        return SendMessage.builder()
+        return EditMessageText.builder()
                 .chatId(message.getChatId())
+                .messageId(message.getMessageId())
                 .text(text)
                 .parseMode(ParseMode.MARKDOWN)
                 .disableWebPagePreview(true)
@@ -539,7 +630,7 @@ public class TelegramEventsHandler implements Handler {
     }
 
     @Filter("completed_channel_orders")
-    SendMessage completedChannelOrders(Message message) {
+    EditMessageText completedChannelOrders(Message message) {
         String text = "\uD83D\uDC41 Ваши 10 последних, завершённых заказов на подписки:\n";
         List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
         List<Order> completedOrderList = orderList.stream()
@@ -558,8 +649,9 @@ public class TelegramEventsHandler implements Handler {
             }
         }
 
-        return SendMessage.builder()
+        return EditMessageText.builder()
                 .chatId(message.getChatId())
+                .messageId(message.getMessageId())
                 .text(text)
                 .parseMode(ParseMode.MARKDOWN)
                 .disableWebPagePreview(true)
@@ -697,6 +789,8 @@ public class TelegramEventsHandler implements Handler {
         switch (lastMessage) {
             case "add_post":
                 return amountPosts(message);
+            case "add_channel":
+                return amountChannelSubscriber(message);
             default:
                 return error(message);
         }
@@ -712,8 +806,20 @@ public class TelegramEventsHandler implements Handler {
         switch (lastMessage[0]) {
             case "add_post":
                 return promotePosts(message, lastMessage[1]);
+            case "add_channel":
+                return promoteChannel(message, lastMessage[1]);
             default:
                 return error(message);
         }
+    }
+
+
+    @Filter("◀️ На главную")
+    SendMessage toMain(Message message) {
+        return SendMessage.builder()
+                .text("Вы в главном меню")
+                .chatId(message.getChatId())
+                .replyMarkup(Keyboards.mainReplyKeyboardMarkup)
+                .build();
     }
 }

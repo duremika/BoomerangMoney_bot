@@ -6,7 +6,7 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+#    show-sql: true
 bot:
   name: boomerang_money_bot
   token: ${BOOMERANG_BOT_TOKEN}

@@ -239,4 +239,10 @@ public class Keyboards {
                 setCallbackData("about_bot");
             }}))
             .build();
+
+    public final static ReplyKeyboardMarkup toMainInlineKeyboard = ReplyKeyboardMarkup.builder()
+            .keyboardRow(new KeyboardRow(List.of(new KeyboardButton("◀️ На главную"))))
+            .resizeKeyboard(true)
+            .build();
+
 }

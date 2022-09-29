@@ -1,30 +1,28 @@
-package ru.duremika.boomerangbot.service;
+package ru.duremika.boomerangbot.handlers;
 
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
-import org.telegram.telegrambots.meta.api.methods.ForwardMessage;
-import org.telegram.telegrambots.meta.api.methods.GetMe;
 import org.telegram.telegrambots.meta.api.methods.ParseMode;
-import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChat;
-import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatAdministrators;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.DeleteMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
-import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
+import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberBanned;
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMemberMember;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
-import ru.duremika.boomerangbot.annotations.ChatType;
 import ru.duremika.boomerangbot.annotations.Filter;
 import ru.duremika.boomerangbot.annotations.Handler;
 import ru.duremika.boomerangbot.config.BotConfig;
-import ru.duremika.boomerangbot.constants.Keyboards;
 import ru.duremika.boomerangbot.entities.Order;
 import ru.duremika.boomerangbot.entities.Task;
 import ru.duremika.boomerangbot.entities.User;
+import ru.duremika.boomerangbot.keyboards.Keyboards;
+import ru.duremika.boomerangbot.service.*;
 
+import javax.annotation.PostConstruct;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -35,53 +33,77 @@ import java.util.stream.Collectors;
 @Component
 @SuppressWarnings({"unused", "UnusedReturnValue"})
 public class TelegramEventsHandler implements Handler {
+    private final TelegramBot bot;
     private final UserService userService;
     private final OrderService orderService;
     private final TaskService taskService;
-    private final TelegramBot bot;
     private final BotConfig config;
+    private final Keyboards keyboards;
 
-    final DecimalFormat decimalFormat = new DecimalFormat("#.##");
+    private DecimalFormat decimalFormat;
+    private float postOrderPrice;
+    private int minPostOrderAmount;
+    private float postViewPrice;
 
-    public final static float postOrderPrice = 0.05f;
-    public final static int minPostOrderAmount = 50;
-    public final static float postViewPrice = 0.03f;
 
+    private float channelOrderPrice;
+    private int minChannelOrderAmount;
+    private float channelSubscribePrice;
 
-    public final static float channelOrderPrice = 0.25f;
-    public final static int minChannelOrderAmount = 2;
-    public final static float channelSubscribePrice = 0.2f;
+    private float groupJoinPrice;
 
-    public final static float groupJoinPrice = 0.3f;
+    private float botStartPrice;
 
-    public final static float botStartPrice = 0.15f;
+    private int inviteFriendPrice;
 
-    public final static int inviteFriend = 1;
+    private float bonusPrice;
 
-    public final static float bonusPrice = 0.021f;
-
-    public TelegramEventsHandler(UserService userService, OrderService orderService, TaskService taskService, @Lazy TelegramBot bot, BotConfig config) {
+    public TelegramEventsHandler(@Lazy TelegramBot bot, UserService userService, OrderService orderService, TaskService taskService, BotConfig config, Keyboards keyboards) {
+        this.bot = bot;
         this.userService = userService;
         this.orderService = orderService;
         this.taskService = taskService;
-        this.bot = bot;
         this.config = config;
+        this.keyboards = keyboards;
     }
 
-    @Filter({"member", "/start"})
-    SendMessage welcome(Message message) {
-        EnabledStatus status = userService.enableUser(message.getChatId());
-        SendMessage.SendMessageBuilder messageBuilder = SendMessage.builder().chatId(message.getChatId());
+    @PostConstruct
+    private void init() {
+        decimalFormat = config.getDecimalFormat();
+        postOrderPrice = config.getPostOrderPrice();
+        minPostOrderAmount = config.getMinPostOrderAmount();
+        postViewPrice = config.getPostViewPrice();
+
+
+        channelOrderPrice = config.getChannelOrderPrice();
+        minChannelOrderAmount = config.getMinChannelOrderAmount();
+        channelSubscribePrice = config.getChannelSubscribePrice();
+
+        groupJoinPrice = config.getGroupJoinPrice();
+
+        botStartPrice = config.getBotStartPrice();
+
+        inviteFriendPrice = config.getInviteFriendPrice();
+        bonusPrice = config.getBonusPrice();
+
+
+    }
+
+    @Filter(chatMemberUpdated = ChatMemberMember.class, command = "/start")
+    SendMessage welcome(Update update) {
+        Long chatId = update.hasMyChatMember() ? update.getMyChatMember().getChat().getId() : update.getMessage().getChatId();
+        EnabledStatus status = userService.enableUser(chatId);
+        SendMessage.SendMessageBuilder messageBuilder = SendMessage.builder().chatId(chatId);
         switch (status) {
             case NEW_USER:
                 messageBuilder
                         .text("✅ Отлично!\nВы зарегистрированы!")
-                        .replyMarkup(Keyboards.mainReplyKeyboardMarkup);
+                        .replyMarkup(keyboards.mainReplyKeyboardMarkup);
                 return messageBuilder.build();
             case DISABLED_USER:
                 messageBuilder
                         .text("✋ С возвращением")
-                        .replyMarkup(Keyboards.mainReplyKeyboardMarkup);
+                        .replyMarkup(keyboards.mainReplyKeyboardMarkup);
                 return messageBuilder.build();
             case BANNED_USER:
                 return messageBuilder.text("Вы заблокированны").build();
@@ -90,24 +112,25 @@ public class TelegramEventsHandler implements Handler {
         }
     }
 
-    @Filter("kicked")
-    void goodbye(Message message) {
-        userService.disableUser(message.getChatId());
+    @Filter(chatMemberUpdated = ChatMemberBanned.class)
+    void goodbye(Update update) {
+        Long chatId = update.getMyChatMember().getChat().getId();
+        userService.disableUser(chatId);
     }
 
-    @Filter("\uD83D\uDC68\u200D\uD83D\uDCBB Заработать")
-    SendMessage earn(Message message) {
-        Long uid = message.getFrom().getId();
-        Long chatId = message.getChatId();
+    @Filter(text = "\uD83D\uDC68\u200D\uD83D\uDCBB Заработать")
+    SendMessage earn(Update update) {
+        Long chatId = update.getMessage().getChatId();
+        String username = update.getMessage().getFrom().getUserName();
 
         try {
-            if (bot.checkSubscribeToInfoChannel(uid)) {
+            if (bot.checkSubscribeToInfoChannel(chatId)) {
                 return notInInfoChannel(chatId);
-            } else if (bot.checkProfilePhoto(uid)) {
+            } else if (bot.checkProfilePhoto(chatId)) {
                 return hasNotPhoto(chatId);
-            } else if (message.getFrom().getUserName() == null) {
+            } else if (username == null) {
                 return hasNotUsername(chatId);
-            } else if (bot.checkSubscribeToViewsChannel(uid)) {
+            } else if (bot.checkSubscribeToViewsChannel(chatId)) {
                 return notInViewerChannel(chatId);
             } else {
                 return captcha(chatId);
@@ -121,8 +144,7 @@ public class TelegramEventsHandler implements Handler {
     SendMessage notInInfoChannel(Long id) {
         return SendMessage.builder()
                 .chatId(id)
-                .text("❗️ Для использования бота подпишитесь на наш канал: [https://t.me/boomerang_money_info](t.me/boomerang_money_info)")
-                .parseMode(ParseMode.MARKDOWN)
+                .text("❗️ Для использования бота подпишитесь на наш канал: https://t.me/boomerang_money_info")
                 .build();
     }
 
@@ -149,7 +171,7 @@ public class TelegramEventsHandler implements Handler {
     SendMessage notInViewerChannel(Long id) {
         return SendMessage.builder()
                 .chatId(id)
-                .text("\uD83D\uDE80 Для заработка подпишитесь на наш канал с просмотрами: [https://t.me/boomerang_money_viewer](t.me/boomerang_money_viewer)")
+                .text("\uD83D\uDE80 Для заработка подпишитесь на наш канал с просмотрами: https://t.me/boomerang_money_viewer")
                 .parseMode(ParseMode.MARKDOWN)
                 .build();
     }
@@ -163,23 +185,27 @@ public class TelegramEventsHandler implements Handler {
                 .chatId(id)
                 .text("Для проверки, что вы не робот, решите пример:\n\n" +
                         x + " + " + y + " =")
-                .replyMarkup(Keyboards.captchaInlineKeyboard(result))
+                .replyMarkup(keyboards.captchaInlineKeyboard(result))
                 .build();
     }
 
-    @Filter("captcha_fail")
-    EditMessageText captchaFail(Message message) {
+    @Filter(callback = "captcha_fail")
+    EditMessageText captchaFail(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+
         return EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
+                .chatId(chatId)
+                .messageId(messageId)
                 .text("❗️ Вы ошиблись!")
                 .build();
     }
 
-    @Filter("captcha_success")
-    EditMessageText earnCaptchaSuccess(Message message) {
-        Long userId = message.getChatId();
-        List<Order> availableOrders = orderService.getAvailableOrders(userId);
+    @Filter(callback = "captcha_success")
+    EditMessageText earnCaptchaSuccess(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        List<Order> availableOrders = orderService.getAvailableOrders(chatId);
 
         long availablePostOrders = availableOrders.stream().filter(o -> o.getType().equals(Order.Type.POST)).count();
         long availableChannelOrders = availableOrders.stream().filter(o -> o.getType().equals(Order.Type.CHANNEL)).count();
@@ -201,64 +227,69 @@ public class TelegramEventsHandler implements Handler {
                 "\n♻️ Доп. заработок: " + availableExtendedOrders +
                 "\n\n\uD83D\uDD14Выбери способ заработка\uD83D\uDC47";
         return EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
+                .chatId(chatId)
+                .messageId(messageId)
                 .text(text)
-                .replyMarkup(Keyboards.earnInlineKeyboard)
+                .replyMarkup(keyboards.earnInlineKeyboard)
                 .build();
     }
 
-    @Filter("\uD83D\uDCE2 Продвижение")
-    SendMessage promotion(Message message) {
+    @Filter(text = "\uD83D\uDCE2 Продвижение")
+    SendMessage promotion(Update update) {
+        Long chatId = update.getMessage().getChatId();
         SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
-                .chatId(message.getChatId());
-        userService.findUser(message.getChatId()).ifPresentOrElse(
+                .chatId(chatId);
+        userService.findUser(chatId).ifPresentOrElse(
                 user -> {
                     String text = "\uD83D\uDCE2 Что вы хотите продвинуть?\n\n" +
                             "\uD83D\uDCB3 Рекламный баланс: " + decimalFormat.format(user.getBalance().getAdvertising()) + "₽";
 
                     sendMessageBuilder
                             .text(text)
-                            .replyMarkup(Keyboards.promotionInlineKeyboard);
+                            .replyMarkup(keyboards.promotionInlineKeyboard);
                 },
                 () -> sendMessageBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
         );
         return sendMessageBuilder.build();
     }
 
-    @Filter("promotion")
-    EditMessageText promotionByCallback(Message message) {
+    @Filter(callback = "promotion")
+    EditMessageText promotionByCallback(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
         EditMessageText.EditMessageTextBuilder editMessageTextBuilder = EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId());
-        userService.findUser(message.getChatId()).ifPresentOrElse(
+                .chatId(chatId)
+                .messageId(messageId);
+        userService.findUser(chatId).ifPresentOrElse(
                 user -> {
                     String text = "\uD83D\uDCE2 Что вы хотите продвинуть?\n\n" +
                             "\uD83D\uDCB3 Рекламный баланс: " + decimalFormat.format(user.getBalance().getAdvertising()) + "₽";
 
                     editMessageTextBuilder
                             .text(text)
-                            .replyMarkup(Keyboards.promotionInlineKeyboard);
+                            .replyMarkup(keyboards.promotionInlineKeyboard);
                 },
                 () -> editMessageTextBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
         );
         return editMessageTextBuilder.build();
     }
 
-    @Filter("post")
-    EditMessageText post(Message message) {
+    @Filter(callback = "post")
+    EditMessageText post(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
         EditMessageText.EditMessageTextBuilder editMessageTextBuilder = EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
+                .chatId(chatId)
+                .messageId(messageId)
                 .parseMode(ParseMode.MARKDOWN);
-        List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
+        List<Order> orderList = orderService.getUserOrders(new User(chatId));
         long amountActiveOrders = orderList.stream()
                 .filter(order -> order.getAmount() > order.getPerformed() && order.getType().equals(Order.Type.POST))
                 .count();
         long amountCompletedOrders = orderList.stream()
                 .filter(order -> order.getAmount() <= order.getPerformed() && order.getType().equals(Order.Type.POST))
                 .count();
-        userService.findUser(message.getChatId()).ifPresentOrElse(
+        userService.findUser(chatId).ifPresentOrElse(
                 user -> {
                     float advertisingBalance = user.getBalance().getAdvertising();
                     String text = "\uD83D\uDC41 *Наш бот предлагает Вам возможность накрутки просмотров на любые посты*\n\n" +
@@ -274,26 +305,30 @@ public class TelegramEventsHandler implements Handler {
                             "\n✅ Завершённых заказов: " + amountCompletedOrders;
                     editMessageTextBuilder
                             .text(text)
-                            .replyMarkup(Keyboards.postInlineKeyboard);
+                            .replyMarkup(keyboards.postInlineKeyboard);
                 },
                 () -> editMessageTextBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
         );
         return editMessageTextBuilder.build();
     }
 
-    @Filter("add_post")
-    EditMessageText addPost(Message message) {
+    @Filter(callback = "add_post")
+    EditMessageText addPost(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
         return EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
+                .chatId(chatId)
+                .messageId(messageId)
                 .text("\uD83D\uDCDD Введите количество просмотров:")
                 .build();
     }
 
-    @Filter("active_post_orders")
-    EditMessageText activePostOrders(Message message) {
-        String text = "\uD83D\uDC41 Ваши активные заказы на просмотры:\n";
-        List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
+    @Filter(callback = "active_post_orders")
+    EditMessageText activePostOrders(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        StringBuilder text = new StringBuilder("\uD83D\uDC41 Ваши активные заказы на просмотры:\n");
+        List<Order> orderList = orderService.getUserOrders(new User(chatId));
         List<Order> activeOrderList = orderList.stream()
                 .filter(order -> order.getAmount() > order.getPerformed() && order.getType().equals(Order.Type.POST))
                 .sorted(Comparator.comparingInt(Order::getMidInViewsChannel))
@@ -301,48 +336,50 @@ public class TelegramEventsHandler implements Handler {
 
 
         if (activeOrderList.size() == 0) {
-            text += "\n\uD83D\uDE1E У Вас нет ни одного активного заказа на просмотры";
+            text.append("\n\uD83D\uDE1E У Вас нет ни одного активного заказа на просмотры");
         } else {
             for (Order order : activeOrderList) {
-                text += "\n▫️ [https://t.me/" + order.getId() + "](https://t.me/" + order.getId() + ") - " +
-                        "Выполнено: " + order.getPerformed() + " из " + order.getAmount() + " раз";
+                text.append("\n▫️ https://t.me/").append(order.getId())
+                        .append(" - Выполнено: ").append(order.getPerformed())
+                        .append(" из ").append(order.getAmount()).append(" раз");
             }
         }
 
         return EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
-                .text(text)
-                .parseMode(ParseMode.MARKDOWN)
+                .chatId(chatId)
+                .messageId(messageId)
+                .text(String.valueOf(text))
                 .disableWebPagePreview(true)
                 .build();
     }
 
-    @Filter("completed_post_orders")
-    EditMessageText completedPostOrders(Message message) {
-        String text = "\uD83D\uDC41 Ваши 10 последних, завершённых заказов на просмотры:\n";
-        List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
+    @Filter(callback = "completed_post_orders")
+    EditMessageText completedPostOrders(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        StringBuilder text = new StringBuilder("\uD83D\uDC41 Ваши 10 последних, завершённых заказов на просмотры:\n");
+        List<Order> orderList = orderService.getUserOrders(new User(chatId));
         List<Order> completedOrderList = orderList.stream()
                 .filter(order -> order.getAmount() <= order.getPerformed() && order.getType().equals(Order.Type.POST))
                 .sorted(Comparator.comparingInt(Order::getMidInViewsChannel))
                 .collect(Collectors.toList());
 
         if (completedOrderList.size() == 0) {
-            text += "\n\uD83D\uDE1E У Вас нет ни одного завершённого заказа на просмотры";
+            text.append("\n\uD83D\uDE1E У Вас нет ни одного завершённого заказа на просмотры");
         } else {
             int start = completedOrderList.size() <= 10 ? 0 : completedOrderList.size() - 11;
-            for (int i = 0; i < completedOrderList.size(); i++) {
+            for (int i = start; i < completedOrderList.size(); i++) {
                 Order order = completedOrderList.get(i);
-                text += "\n▫️ [https://t.me/" + order.getId() + "](https://t.me/" + order.getId() + ")\n" +
-                        "Выполнено: " + order.getPerformed() + " из " + order.getAmount() + " раз";
+                text.append("\n▫️ https://t.me/").append(order.getId())
+                        .append("\nВыполнено: ").append(order.getPerformed()).append(" из ")
+                        .append(order.getAmount()).append(" раз");
             }
         }
 
         return EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
-                .text(text)
-                .parseMode(ParseMode.MARKDOWN)
+                .chatId(chatId)
+                .messageId(messageId)
+                .text(String.valueOf(text))
                 .disableWebPagePreview(true)
                 .build();
     }
@@ -354,7 +391,7 @@ public class TelegramEventsHandler implements Handler {
         if (amount < minPostOrderAmount) {
             sendMessageBuilder.text("❗️Ошибка❗️\n\n" +
                             "Минимальный заказ - " + minPostOrderAmount + " просмотров")
-                    .replyMarkup(Keyboards.toMainInlineKeyboard);
+                    .replyMarkup(keyboards.toMainInlineKeyboard);
             return sendMessageBuilder.build();
         }
 
@@ -374,66 +411,16 @@ public class TelegramEventsHandler implements Handler {
         return sendMessageBuilder.build();
     }
 
-    SendMessage promotePosts(Message message, String amount) {
-        String[] lastMessage = userService.getLastMessage(message.getChatId()).split(" ");
-        String callbackData = message.getForwardFromChat().getUserName() + "/" + message.getMessageId();
-
-
-        float writeOfAmount = Integer.parseInt(amount) * postOrderPrice;
-
-        String viewsChannelId = config.getViewsChannelId();
-        String infoChannelId = config.getInfoChannelId();
-
-        String fromChatId = message.getChatId().toString();
-        Integer messageId = message.getMessageId();
-
-
-        Message messageInViewChannel;
-        Message messageInInfoChannel;
-        try {
-            bot.execute(new ForwardMessage(viewsChannelId, fromChatId, messageId));
-            messageInViewChannel = bot.execute(PostPromoter.viewPostChecker(message, viewsChannelId));
-            messageInInfoChannel = bot.execute(PostPromoter.addTaskToInfoChannel(message, amount, infoChannelId));
-        } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
-        }
-
-        User userDB = userService.findUser(message.getFrom().getId()).get();
-        Order order = new Order();
-        order.setId(callbackData);
-        order.setAuthor(userDB);
-        order.setAmount(Integer.parseInt(lastMessage[1]));
-        order.setType(Order.Type.POST);
-        order.setTasks(new ArrayList<>());
-
-        order.setMidInInfoChannel(messageInInfoChannel.getMessageId());
-        order.setMidInViewsChannel(messageInViewChannel.getMessageId());
-
-        userDB.getOrders().add(order);
-        orderService.add(order);
-
-        SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
-                .chatId(message.getChatId());
-        userService.findUser(message.getChatId()).ifPresentOrElse(
-                user -> {
-                    userService.writeOfFromAdvertising(user.getId(), writeOfAmount);
-                    String text = "✅ Пост добавлен! ✅\n\n" +
-                            "\uD83D\uDCB8 С вашего баланса списано " + decimalFormat.format(writeOfAmount) + "₽";
-
-                    sendMessageBuilder
-                            .text(text);
-                },
-                () -> sendMessageBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
-        );
-        return sendMessageBuilder.build();
-    }
-
-    @Filter(value = "post_viewed", chatType = ChatType.CHANNEL)
-    AnswerCallbackQuery postViewed(Message message) {
+    @Filter(specialType = "post_viewed", chatType = Filter.ChatType.CHANNEL)
+    AnswerCallbackQuery postViewed(Update update) {
+        String callbackQueryId = update.getCallbackQuery().getId();
+        String callbackData = update.getCallbackQuery().getData();
+        Long chatId = update.getCallbackQuery().getFrom().getId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
         AnswerCallbackQuery.AnswerCallbackQueryBuilder answer = AnswerCallbackQuery.builder()
-                .callbackQueryId(message.getCaption())
+                .callbackQueryId(callbackQueryId)
                 .showAlert(true);
-        Order order = orderService.getOrderById(message.getText());
+        Order order = orderService.getOrderById(callbackData);
         if (order == null) {
             return answer.text("Задание недоступно")
                     .build();
@@ -443,8 +430,8 @@ public class TelegramEventsHandler implements Handler {
             return answer.text("Задание недоступно")
                     .build();
         }
-        User user = new User(message.getFrom().getId());
-        Task task = taskService.getTaskByOrderId(message.getText(), user);
+        User user = new User(chatId);
+        Task task = taskService.getTaskByOrderId(callbackData, user);
         if (task != null) {
             return answer.text("Вы уже просматривали этот пост\n\n" +
                             "\uD83D\uDCB3 Осталось просморов: " + availableViews +
@@ -460,8 +447,7 @@ public class TelegramEventsHandler implements Handler {
             try {
                 bot.execute(SendMessage.builder()
                         .chatId(order.getAuthor().getId())
-                        .text("✅Ваш заказ на " + order.getAmount() + " просмотров поста [https://t.me/" + order.getId() + "](https://t.me/" + order.getId() + ") выполнен!")
-                        .parseMode(ParseMode.MARKDOWN)
+                        .text("✅Ваш заказ на " + order.getAmount() + " просмотров поста https://t.me/" + order.getId() + " выполнен!")
                         .disableWebPagePreview(false)
                         .build());
                 bot.execute(DeleteMessage.builder()
@@ -478,27 +464,29 @@ public class TelegramEventsHandler implements Handler {
         }
         orderService.add(order);
         taskService.add(task);
-        userService.replenishMainBalance(message.getFrom().getId(), postViewPrice);
+        userService.replenishMainBalance(chatId, postViewPrice);
         return answer.text("\uD83D\uDC41 За просмотр поста вам начисленно " + decimalFormat.format(postViewPrice) + "₽\n\n" +
                         "\uD83D\uDCB3 Осталось просморов: " + --availableViews +
                         "\n\uD83D\uDCB0 Деньги зачисленны на баланс в боте: @" + bot.getBotUsername())
                 .build();
     }
 
-    @Filter("channel")
-    EditMessageText channel(Message message) {
+    @Filter(callback = "channel")
+    EditMessageText channel(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
         EditMessageText.EditMessageTextBuilder editMessageTextBuilder = EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
+                .chatId(chatId)
+                .messageId(messageId)
                 .parseMode(ParseMode.MARKDOWN);
-        List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
+        List<Order> orderList = orderService.getUserOrders(new User(chatId));
         long amountActiveOrders = orderList.stream()
                 .filter(order -> order.getAmount() > order.getPerformed() && order.getType().equals(Order.Type.CHANNEL))
                 .count();
         long amountCompletedOrders = orderList.stream()
                 .filter(order -> order.getAmount() <= order.getPerformed() && order.getType().equals(Order.Type.CHANNEL))
                 .count();
-        userService.findUser(message.getChatId()).ifPresentOrElse(
+        userService.findUser(chatId).ifPresentOrElse(
                 user -> {
                     float advertisingBalance = user.getBalance().getAdvertising();
                     String text = "\uD83D\uDCE2 *Наш бот предлагает Вам возможность накрутки подписчиков на Ваш ПУБЛИЧНЫЙ и ПРИВАТНЫЙ*\n\n" +
@@ -516,18 +504,20 @@ public class TelegramEventsHandler implements Handler {
                     editMessageTextBuilder
                             .text(text)
                             .parseMode(ParseMode.MARKDOWN)
-                            .replyMarkup(Keyboards.channelInlineKeyboard);
+                            .replyMarkup(keyboards.channelInlineKeyboard);
                 },
                 () -> editMessageTextBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
         );
         return editMessageTextBuilder.build();
     }
 
-    @Filter("add_channel")
-    EditMessageText addChannel(Message message) {
+    @Filter(callback = "add_channel")
+    EditMessageText addChannel(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
         return EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
+                .chatId(chatId)
+                .messageId(messageId)
                 .text("\uD83D\uDCDD Введите количество подписчиков:")
                 .build();
     }
@@ -539,7 +529,7 @@ public class TelegramEventsHandler implements Handler {
         if (amount < minChannelOrderAmount) {
             sendMessageBuilder.text("❗️Ошибка❗️\n\n" +
                             "Минимальный заказ - " + minChannelOrderAmount + " подписчиков")
-                    .replyMarkup(Keyboards.toMainInlineKeyboard);
+                    .replyMarkup(keyboards.toMainInlineKeyboard);
             return sendMessageBuilder.build();
         }
 
@@ -559,52 +549,12 @@ public class TelegramEventsHandler implements Handler {
         return sendMessageBuilder.build();
     }
 
-    SendMessage promoteChannel(Message message, String amount) {
-        Long chatId = message.getFrom().getId();
-        String channelId = message.getForwardFromChat().getId().toString();
-        try {
-            var me = bot.execute(new GetMe());
-            boolean botIsAdmin = bot.execute(new GetChatAdministrators(channelId)).stream()
-                    .anyMatch(chatMember -> chatMember.getUser().equals(me));
-            Chat chat = bot.execute(new GetChat(channelId));
-            if (botIsAdmin && chat.getInviteLink() != null) {
-                return SendMessage.builder()
-                        .text("❗️Ошибка❗️\n\n" +
-                                "Проверьте, является ли наш бот администратором Вашего канала?")
-                        .chatId(chatId)
-                        .build();
-            }
-
-        } catch (TelegramApiException e) {
-            System.out.println(e.getMessage());
-            return SendMessage.builder()
-                    .text("❗️Ошибка❗️\n\n" +
-                            "Проверьте, является ли наш бот администратором Вашего канала?")
-                    .chatId(chatId)
-                    .build();
-        }
-        float writeOfAmount = Integer.parseInt(amount) * channelOrderPrice;
-        SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
-                .chatId(message.getChatId());
-        userService.findUser(message.getChatId()).ifPresentOrElse(
-                user -> {
-                    userService.writeOfFromAdvertising(user.getId(), writeOfAmount);
-                    String text = "✅ Канал добавлен! ✅\n\n" +
-                            "\uD83D\uDCB8 С Вашего баланса списано " + decimalFormat.format(writeOfAmount) + "₽\n\n" +
-                            "♻️ В случае отписки пользователем от Вашего канала Вы получите компенсацию на рекламный баланс в полном размере";
-
-                    sendMessageBuilder
-                            .text(text);
-                },
-                () -> sendMessageBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
-        );
-        return sendMessageBuilder.build();
-    }
-
-    @Filter("active_channel_orders")
-    EditMessageText activeChannelOrders(Message message) {
-        String text = "\uD83D\uDC41 Ваши активные заказы на подписки:\n";
-        List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
+    @Filter(callback = "active_channel_orders")
+    EditMessageText activeChannelOrders(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        StringBuilder text = new StringBuilder("\uD83D\uDC41 Ваши активные заказы на подписки:\n");
+        List<Order> orderList = orderService.getUserOrders(new User(chatId));
         List<Order> activeOrderList = orderList.stream()
                 .filter(order -> order.getAmount() > order.getPerformed() && order.getType().equals(Order.Type.CHANNEL))
                 .sorted(Comparator.comparingInt(Order::getMidInViewsChannel))
@@ -612,57 +562,60 @@ public class TelegramEventsHandler implements Handler {
 
 
         if (activeOrderList.size() == 0) {
-            text += "\n\uD83D\uDE1E У Вас нет ни одного активного заказа на подписки";
+            text.append("\n\uD83D\uDE1E У Вас нет ни одного активного заказа на подписки");
         } else {
             for (Order order : activeOrderList) {
-                text += "\n▫️ [https://t.me/" + order.getId() + "](https://t.me/" + order.getId() + ") - " +
-                        "Выполнено: " + order.getPerformed() + " из " + order.getAmount() + " раз";
+                text.append("\n▫️ https://t.me/").append(order.getId()).append(" - Выполнено: ")
+                        .append(order.getPerformed()).append(" из " ).append(order.getAmount()).append(" раз");
             }
         }
 
         return EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
-                .text(text)
-                .parseMode(ParseMode.MARKDOWN)
+                .chatId(chatId)
+                .messageId(messageId)
+                .text(String.valueOf(text))
                 .disableWebPagePreview(true)
                 .build();
     }
 
-    @Filter("completed_channel_orders")
-    EditMessageText completedChannelOrders(Message message) {
-        String text = "\uD83D\uDC41 Ваши 10 последних, завершённых заказов на подписки:\n";
-        List<Order> orderList = orderService.getUserOrders(new User(message.getChatId()));
+    @Filter(command = "completed_channel_orders")
+    EditMessageText completedChannelOrders(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        StringBuilder text = new StringBuilder("\uD83D\uDC41 Ваши 10 последних, завершённых заказов на подписки:\n");
+        List<Order> orderList = orderService.getUserOrders(new User(chatId));
         List<Order> completedOrderList = orderList.stream()
                 .filter(order -> order.getAmount() <= order.getPerformed() && order.getType().equals(Order.Type.CHANNEL))
                 .sorted(Comparator.comparingInt(Order::getMidInViewsChannel))
                 .collect(Collectors.toList());
 
         if (completedOrderList.size() == 0) {
-            text += "\n\uD83D\uDE1E У Вас нет ни одного завершённого заказа на подписки";
+            text.append("\n\uD83D\uDE1E У Вас нет ни одного завершённого заказа на подписки");
         } else {
             int start = completedOrderList.size() <= 10 ? 0 : completedOrderList.size() - 11;
-            for (int i = 0; i < completedOrderList.size(); i++) {
+            for (int i = start; i < completedOrderList.size(); i++) {
                 Order order = completedOrderList.get(i);
-                text += "\n▫️ [https://t.me/" + order.getId() + "](https://t.me/" + order.getId() + ")\n" +
-                        "Выполнено: " + order.getPerformed() + " из " + order.getAmount() + " раз";
+                text.append("\n▫️ https://t.me/").append(order.getId())
+                        .append("\nВыполнено: ").append(order.getPerformed())
+                        .append(" из ").append(order.getAmount()).append(" раз");
             }
         }
 
         return EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
-                .text(text)
-                .parseMode(ParseMode.MARKDOWN)
+                .chatId(chatId)
+                .messageId(messageId)
+                .text(String.valueOf(text))
                 .disableWebPagePreview(true)
                 .build();
     }
 
-    @Filter("\uD83D\uDCF1 Мой кабинет")
-    SendMessage myOffice(Message message) {
+    @Filter(text = "\uD83D\uDCF1 Мой кабинет")
+    SendMessage myOffice(Update update) {
+        Long chatId = update.getMessage().getChatId();
+        Integer messageId = update.getMessage().getMessageId();
         SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
-                .chatId(message.getChatId());
-        userService.findUser(message.getChatId()).ifPresentOrElse(
+                .chatId(chatId);
+        userService.findUser(chatId).ifPresentOrElse(
                 user -> {
                     long delta = System.currentTimeMillis() - user.getCreatedAt().getTime();
                     long days = TimeUnit.DAYS.convert(delta, TimeUnit.MILLISECONDS);
@@ -696,47 +649,54 @@ public class TelegramEventsHandler implements Handler {
 
                     sendMessageBuilder
                             .text(text)
-                            .replyMarkup(Keyboards.myOfficeInlineKeyboard);
+                            .replyMarkup(keyboards.myOfficeInlineKeyboard);
                 },
                 () -> sendMessageBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
         );
         return sendMessageBuilder.build();
     }
 
-    @Filter("\uD83D\uDCDA О боте")
-    SendMessage aboutBot(Message message) {
+    @Filter(text = "\uD83D\uDCDA О боте")
+    SendMessage aboutBot(Update update) {
+        Long chatId = update.getMessage().getChatId();
         return SendMessage.builder()
-                .chatId(message.getChatId())
+                .chatId(chatId)
                 .text("\uD83D\uDCDA Информация о нашем боте:")
-                .replyMarkup(Keyboards.aboutBotInlineKeyboard)
+                .replyMarkup(keyboards.aboutBotInlineKeyboard)
                 .build();
     }
 
-    @Filter("about_bot")
-    EditMessageText aboutBotByCallback(Message message) {
+    @Filter(callback = "about_bot")
+    EditMessageText aboutBotByCallback(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
         return EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
+                .chatId(chatId)
+                .messageId(messageId)
                 .text("\uD83D\uDCDA Информация о нашем боте:")
-                .replyMarkup(Keyboards.aboutBotInlineKeyboard)
+                .replyMarkup(keyboards.aboutBotInlineKeyboard)
                 .build();
     }
 
-    @Filter("chat")
-    EditMessageText chat(Message message) {
+    @Filter(callback = "chat")
+    EditMessageText chat(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
         return EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
+                .chatId(chatId)
+                .messageId(messageId)
                 .text("❤️ Чтобы перейти в чат, нажмите ссылку ниже:")
-                .replyMarkup(Keyboards.chatInlineKeyboard)
+                .replyMarkup(keyboards.chatInlineKeyboard)
                 .build();
     }
 
-    @Filter("rules")
-    EditMessageText rules(Message message) {
+    @Filter(callback = "rules")
+    EditMessageText rules(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
         return EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
+                .chatId(chatId)
+                .messageId(messageId)
                 .text("⚠️Используя данный бот, вы автоматически соглашаетесь с " +
                         "правилами которые описаны ниже по ссылке, любые ваши " +
                         "операции и действия на проекте расцениваются " +
@@ -744,47 +704,45 @@ public class TelegramEventsHandler implements Handler {
                         "♻️Правила бота: [читать!](https://telegra.ph/Pravila-bota-TGSTAR-BOT-12-14)")
                 .parseMode(ParseMode.MARKDOWN)
                 .disableWebPagePreview(true)
-                .replyMarkup(Keyboards.rulesInlineKeyboard)
+                .replyMarkup(keyboards.rulesInlineKeyboard)
                 .build();
     }
 
-    @Filter("admin")
-    EditMessageText administration(Message message) {
+    @Filter(callback = "admin")
+    EditMessageText administration(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
         return EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
+                .chatId(chatId)
+                .messageId(messageId)
                 .text("⚠️ Обращаться к администратору в случае:\n\n" +
                         "1. Если обнаружен баг (ошибка).\n" +
                         "2. У вас есть деловое предложение.\n" +
                         "3. Хотите иметь собственного бота.\n" +
                         "4. Запрещено спрашивать по поводу выплат.")
-                .replyMarkup(Keyboards.administrationInlineKeyboard)
+                .replyMarkup(keyboards.administrationInlineKeyboard)
                 .build();
     }
 
-    @Filter("want_bot")
-    EditMessageText wantBot(Message message) {
+    @Filter(callback = "want_bot")
+    EditMessageText wantBot(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
         return EditMessageText.builder()
-                .chatId(message.getChatId())
-                .messageId(message.getMessageId())
+                .chatId(chatId)
+                .messageId(messageId)
                 .text("⚠️ Если вы хотите заказать бот, напишите разработчикам, кнопка ниже:")
-                .replyMarkup(Keyboards.wantBotInlineKeyboard)
+                .replyMarkup(keyboards.wantBotInlineKeyboard)
                 .build();
     }
 
-    @Filter("error")
-    SendMessage error(Message message) {
-        return SendMessage.builder()
-                .chatId(message.getChatId())
-                .text("\uD83E\uDD28")
-                .build();
-    }
-
-    @Filter("number")
-    SendMessage number(Message message) {
-        String lastMessage = userService.getLastMessage(message.getChatId());
+    @Filter(specialType = "number")
+    SendMessage number(Update update) {
+        Message message = update.getMessage();
+        Long chatId = message.getChatId();
+        String lastMessage = userService.getLastMessage(chatId);
         if (lastMessage == null) {
-            return error(message);
+            return bot.error(update);
         }
         switch (lastMessage) {
             case "add_post":
@@ -792,34 +750,17 @@ public class TelegramEventsHandler implements Handler {
             case "add_channel":
                 return amountChannelSubscriber(message);
             default:
-                return error(message);
+                return bot.error(update);
         }
     }
 
-    @Filter("forward")
-    SendMessage forward(Message message) {
-        String[] lastMessage = userService.getLastMessage(message.getChatId()).split(" ");
-
-        if (lastMessage.length != 2 || lastMessage[0] == null || lastMessage[1] == null) {
-            return error(message);
-        }
-        switch (lastMessage[0]) {
-            case "add_post":
-                return promotePosts(message, lastMessage[1]);
-            case "add_channel":
-                return promoteChannel(message, lastMessage[1]);
-            default:
-                return error(message);
-        }
-    }
-
-
-    @Filter("◀️ На главную")
-    SendMessage toMain(Message message) {
+    @Filter(text = "◀️ На главную")
+    SendMessage toMain(Update update) {
+        Long chatId = update.getMessage().getChatId();
         return SendMessage.builder()
                 .text("Вы в главном меню")
-                .chatId(message.getChatId())
-                .replyMarkup(Keyboards.mainReplyKeyboardMarkup)
+                .chatId(chatId)
+                .replyMarkup(keyboards.mainReplyKeyboardMarkup)
                 .build();
     }
 }

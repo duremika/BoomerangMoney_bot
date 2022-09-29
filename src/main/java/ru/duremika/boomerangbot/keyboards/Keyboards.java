@@ -1,18 +1,21 @@
-package ru.duremika.boomerangbot.constants;
+package ru.duremika.boomerangbot.keyboards;
 
+import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardButton;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
-import ru.duremika.boomerangbot.service.TelegramEventsHandler;
+import ru.duremika.boomerangbot.config.BotConfig;
 
 import java.util.List;
 import java.util.Random;
 
+@Component
 public class Keyboards {
+    private final BotConfig config = new BotConfig();
 
-    public final static ReplyKeyboardMarkup mainReplyKeyboardMarkup = ReplyKeyboardMarkup.builder()
+    public final ReplyKeyboardMarkup mainReplyKeyboardMarkup = ReplyKeyboardMarkup.builder()
             .keyboardRow(new KeyboardRow(
                     List.of(new KeyboardButton("\uD83D\uDC68\u200D\uD83D\uDCBB Заработать"),
                             new KeyboardButton("\uD83D\uDCE2 Продвижение"))
@@ -27,29 +30,29 @@ public class Keyboards {
             .resizeKeyboard(true)
             .build();
 
-    public final static InlineKeyboardMarkup earnInlineKeyboard = InlineKeyboardMarkup.builder()
+    public final InlineKeyboardMarkup earnInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(
-                    new InlineKeyboardButton("\uD83E\uDD16 Перейти в бота +" + TelegramEventsHandler.botStartPrice + "₽") {{
+                    new InlineKeyboardButton("\uD83E\uDD16 Перейти в бота +" + config.getBotStartPrice() + "₽") {{
                         setCallbackData("earn_bot");
                     }}
             ))
             .keyboardRow(List.of(
-                    new InlineKeyboardButton("\uD83D\uDCE2 Подписаться на канал +" + TelegramEventsHandler.channelSubscribePrice + "₽") {{
+                    new InlineKeyboardButton("\uD83D\uDCE2 Подписаться на канал +" + config.getChannelSubscribePrice() + "₽") {{
                         setCallbackData("earn_channel");
                     }}
             ))
             .keyboardRow(List.of(
-                    new InlineKeyboardButton("\uD83D\uDC64 Вступить в группу +" + TelegramEventsHandler.groupJoinPrice + "₽") {{
+                    new InlineKeyboardButton("\uD83D\uDC64 Вступить в группу +" + config.getGroupJoinPrice() + "₽") {{
                         setCallbackData("earn_group");
                     }}
             ))
             .keyboardRow(List.of(
-                    new InlineKeyboardButton("\uD83D\uDC41 Смотреть посты +" + TelegramEventsHandler.postViewPrice + "₽") {{
+                    new InlineKeyboardButton("\uD83D\uDC41 Смотреть посты +" + config.getPostViewPrice() + "₽") {{
                         setUrl("https://t.me/boomerang_money_viewer");
                     }}
             ))
             .keyboardRow(List.of(
-                    new InlineKeyboardButton("\uD83D\uDE4B\uD83C\uDFFB\u200D♂️ Пригласить друга +" + TelegramEventsHandler.inviteFriend + "₽") {{
+                    new InlineKeyboardButton("\uD83D\uDE4B\uD83C\uDFFB\u200D♂️ Пригласить друга +" + config.getInviteFriendPrice() + "₽") {{
                         setCallbackData("earn_invite");
                     }}
             ))
@@ -57,12 +60,12 @@ public class Keyboards {
                     new InlineKeyboardButton("\uD83D\uDD0E Доп. задания") {{
                         setCallbackData("earn_additional");
                     }},
-                    new InlineKeyboardButton("\uD83C\uDF81 Бонус +" + TelegramEventsHandler.bonusPrice + "₽") {{
+                    new InlineKeyboardButton("\uD83C\uDF81 Бонус +" + config.getBonusPrice() + "₽") {{
                         setCallbackData("earn_bonus");
                     }}
             )).build();
 
-    public final static InlineKeyboardMarkup promotionInlineKeyboard = InlineKeyboardMarkup.builder()
+    public final InlineKeyboardMarkup promotionInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(
                     new InlineKeyboardButton("\uD83D\uDC41 Пост") {{
                         setCallbackData("post");
@@ -95,7 +98,7 @@ public class Keyboards {
             }}))
             .build();
 
-    public final static InlineKeyboardMarkup postInlineKeyboard = InlineKeyboardMarkup.builder()
+    public final InlineKeyboardMarkup postInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDC41 Добавить пост") {{
                 setCallbackData("add_post");
             }}))
@@ -109,7 +112,7 @@ public class Keyboards {
             }}))
             .build();
 
-    public final static InlineKeyboardMarkup channelInlineKeyboard = InlineKeyboardMarkup.builder()
+    public final InlineKeyboardMarkup channelInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDCE2 Добавить канал") {{
                 setCallbackData("add_channel");
             }}))
@@ -124,7 +127,7 @@ public class Keyboards {
             .build();
 
 
-    public static InlineKeyboardMarkup captchaInlineKeyboard(int result) {
+    public InlineKeyboardMarkup captchaInlineKeyboard(int result) {
         int[] buttons = generateButtonsForCaptcha(result);
         return InlineKeyboardMarkup.builder()
                 .keyboardRow(List.of(
@@ -140,7 +143,7 @@ public class Keyboards {
                 )).build();
     }
 
-    private static int[] generateButtonsForCaptcha(int result) {
+    private int[] generateButtonsForCaptcha(int result) {
         int[] buttons = new int[3];
         Random random = new Random();
         int position = random.nextInt(3);
@@ -153,7 +156,7 @@ public class Keyboards {
         return buttons;
     }
 
-    public final static InlineKeyboardMarkup addPostToInfoChannelInlineKeyboard = InlineKeyboardMarkup.builder()
+    public final InlineKeyboardMarkup addPostToInfoChannelInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDC41 Канал с просмотрами") {{
                 setUrl("https://t.me/boomerang_money_viewer");
             }}))
@@ -162,7 +165,7 @@ public class Keyboards {
             }}))
             .build();
 
-    public final static InlineKeyboardMarkup myOfficeInlineKeyboard = InlineKeyboardMarkup.builder()
+    public final InlineKeyboardMarkup myOfficeInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(
                     new InlineKeyboardButton("\uD83D\uDCB3 Пополнить") {{
                         setCallbackData("top_up");
@@ -176,7 +179,7 @@ public class Keyboards {
             }}))
             .build();
 
-    public final static InlineKeyboardMarkup aboutBotInlineKeyboard = InlineKeyboardMarkup.builder()
+    public final InlineKeyboardMarkup aboutBotInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(new InlineKeyboardButton("⭐️ Аукцион ⭐️") {{
                                      setUrl("https://t.me/BotFather");
                                  }}
@@ -207,7 +210,7 @@ public class Keyboards {
             ))
             .build();
 
-    public final static InlineKeyboardMarkup chatInlineKeyboard = InlineKeyboardMarkup.builder()
+    public final InlineKeyboardMarkup chatInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDCAC Чат \uD83C\uDDF7\uD83C\uDDFA") {{
                 setUrl("https://t.me/boomerang_money_chat");
             }}))
@@ -216,13 +219,13 @@ public class Keyboards {
             }}))
             .build();
 
-    public final static InlineKeyboardMarkup rulesInlineKeyboard = InlineKeyboardMarkup.builder()
+    public final InlineKeyboardMarkup rulesInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
                 setCallbackData("about_bot");
             }}))
             .build();
 
-    public final static InlineKeyboardMarkup administrationInlineKeyboard = InlineKeyboardMarkup.builder()
+    public final InlineKeyboardMarkup administrationInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDCDD Написать") {{
                 setUrl("https://t.me/x_MaksOn_x");
             }}))
@@ -231,7 +234,7 @@ public class Keyboards {
             }}))
             .build();
 
-    public final static InlineKeyboardMarkup wantBotInlineKeyboard = InlineKeyboardMarkup.builder()
+    public final InlineKeyboardMarkup wantBotInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDCDD Написать") {{
                 setUrl("https://t.me/x_MaksOn_x");
             }}))
@@ -240,7 +243,7 @@ public class Keyboards {
             }}))
             .build();
 
-    public final static ReplyKeyboardMarkup toMainInlineKeyboard = ReplyKeyboardMarkup.builder()
+    public final ReplyKeyboardMarkup toMainInlineKeyboard = ReplyKeyboardMarkup.builder()
             .keyboardRow(new KeyboardRow(List.of(new KeyboardButton("◀️ На главную"))))
             .resizeKeyboard(true)
             .build();

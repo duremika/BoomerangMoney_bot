@@ -165,6 +165,12 @@ public class Keyboards {
             }}))
             .build();
 
+    public final InlineKeyboardMarkup addChannelToInfoChannelInlineKeyboard = InlineKeyboardMarkup.builder()
+            .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Перейти в boomerang_money_bot") {{
+                setUrl("https://t.me/boomerang_money_bot");
+            }}))
+            .build();
+
     public final InlineKeyboardMarkup myOfficeInlineKeyboard = InlineKeyboardMarkup.builder()
             .keyboardRow(List.of(
                     new InlineKeyboardButton("\uD83D\uDCB3 Пополнить") {{

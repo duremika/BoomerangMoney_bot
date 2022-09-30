@@ -578,7 +578,7 @@ public class TelegramEventsHandler implements Handler {
                 .build();
     }
 
-    @Filter(command = "completed_channel_orders")
+    @Filter(callback = "completed_channel_orders")
     EditMessageText completedChannelOrders(Update update) {
         Long chatId = update.getCallbackQuery().getMessage().getChatId();
         Integer messageId = update.getCallbackQuery().getMessage().getMessageId();

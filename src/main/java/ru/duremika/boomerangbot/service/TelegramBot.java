@@ -127,7 +127,12 @@ public class TelegramBot extends TelegramLongPollingBot {
                         break loop;
                     }
                     if (Arrays.asList(filter.specialType()).contains("post_viewed") &&
-                            MessageType.CALLBACK.equals(messageType) && callback.contains("/")) {
+                            MessageType.CALLBACK.equals(messageType) && callback.contains("post_viewed")) {
+                        selectedMethod = Map.entry(method, handler);
+                        break loop;
+                    }
+                    if (Arrays.asList(filter.specialType()).contains("check_subscribe") &&
+                            MessageType.CALLBACK.equals(messageType) && callback.contains("check_subscribe")) {
                         selectedMethod = Map.entry(method, handler);
                         break loop;
                     }
@@ -160,7 +165,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 BotApiMethod<? extends Serializable> botApiMethod =
                         (BotApiMethod<? extends Serializable>) invoke;
                 var message = execute(botApiMethod);
-                log.info("Response: " + message);
+                log.info("Response: " + message.toString().replace("\n", "\\n"));
             }
         } catch (Exception e) {
             e.printStackTrace();

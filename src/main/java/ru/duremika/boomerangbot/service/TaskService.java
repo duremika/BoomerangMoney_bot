@@ -10,7 +10,7 @@ import ru.duremika.boomerangbot.repository.TaskRepository;
 @RequiredArgsConstructor
 public class TaskService {
     private final TaskRepository repository;
-    public Task getTaskByOrderId(String orderId, User user){
+    public Task getTaskByOrderId(Long orderId, User user){
         return repository.getTaskByOrder_idAndUser(orderId, user).orElse(null);
     }
 

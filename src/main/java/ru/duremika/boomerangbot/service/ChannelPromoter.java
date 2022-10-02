@@ -15,7 +15,7 @@ public class ChannelPromoter {
         return SendMessage.builder()
                 .text("\uD83D\uDE80 Доступно новое задание на " + amount + " подписок")
                 .chatId(chatId)
-                .replyMarkup(keyboards.addChannelToInfoChannelInlineKeyboard)
+                .replyMarkup(keyboards.addChannelToInfoChannelInlineKeyboard())
                 .build();
     }
 }

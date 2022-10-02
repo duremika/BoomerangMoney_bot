@@ -16,7 +16,7 @@ public class OrderService {
         this.repository = repository;
     }
 
-    public Order getOrderById(String id) {
+    public Order getOrderById(Long id) {
         return repository.findById(id).orElse(null);
     }
 
@@ -28,7 +28,11 @@ public class OrderService {
         return repository.getOrdersByPerformedLessThanAmount(id);
     }
 
-    public void add(Order order) {
-        repository.save(order);
+    public List<Order> getAvailableOrders(Long id, Order.Type type){
+        return repository.getOrdersByPerformedLessThanAmountWithType(id, type);
+    }
+
+    public Order add(Order order) {
+        return repository.save(order);
     }
 }

@@ -1,9 +1,6 @@
 package ru.duremika.boomerangbot.entities;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
 
 import javax.persistence.*;
 
@@ -21,4 +18,12 @@ public class Task {
     @ManyToOne
     @JoinColumn(name = "order_id")
     private Order order;
+
+    @Enumerated(EnumType.STRING)
+    private STATUS status;
+
+    public enum STATUS{
+        COMPLETED,
+        IGNORED
+    }
 }

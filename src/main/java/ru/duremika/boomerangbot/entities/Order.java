@@ -1,7 +1,6 @@
 package ru.duremika.boomerangbot.entities;
 
 import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import javax.persistence.*;
@@ -12,12 +11,12 @@ import java.util.List;
 @Table(name = "orders")
 public class Order {
     @Id
-    private String id;
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
+
+    String link;
     private int amount;
     private int performed;
-
-    private int midInInfoChannel;
-    private int midInViewsChannel;
 
     @Enumerated(EnumType.STRING)
     private Type type;

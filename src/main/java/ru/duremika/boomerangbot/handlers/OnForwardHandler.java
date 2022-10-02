@@ -81,16 +81,6 @@ public class OnForwardHandler implements Handler {
         String fromChatId = message.getChatId().toString();
         Integer messageId = message.getMessageId();
 
-        Message messageInViewChannel;
-        Message messageInInfoChannel;
-        try {
-            bot.execute(new ForwardMessage(viewsChannelId, fromChatId, messageId));
-            messageInViewChannel = bot.execute(postPromoter.viewPostChecker(message, viewsChannelId));
-            messageInInfoChannel = bot.execute(postPromoter.addTaskToInfoChannel(amount, infoChannelId));
-        } catch (TelegramApiException e) {
-            throw new RuntimeException(e);
-        }
-
         Optional<User> optionalUserDB = userService.findUser(message.getFrom().getId());
         User userDB;
         if (optionalUserDB.isPresent()) {
@@ -103,17 +93,23 @@ public class OnForwardHandler implements Handler {
         }
 
         Order order = new Order();
-        order.setId(callbackData);
+        order.setLink(callbackData);
         order.setAuthor(userDB);
         order.setAmount(Integer.parseInt(lastMessage[1]));
         order.setType(Order.Type.POST);
         order.setTasks(new ArrayList<>());
 
-        order.setMidInInfoChannel(messageInInfoChannel.getMessageId());
-        order.setMidInViewsChannel(messageInViewChannel.getMessageId());
-
         userDB.getOrders().add(order);
-        orderService.add(order);
+        order = orderService.add(order);
+
+        try {
+            bot.execute(new ForwardMessage(viewsChannelId, fromChatId, messageId));
+            bot.execute(postPromoter.viewPostChecker(viewsChannelId, order.getId()));
+            bot.execute(postPromoter.addTaskToInfoChannel(amount, infoChannelId));
+        } catch (TelegramApiException e) {
+            throw new RuntimeException(e);
+        }
+
 
         SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
                 .chatId(message.getChatId());
@@ -136,22 +132,15 @@ public class OnForwardHandler implements Handler {
         Long chatId = message.getFrom().getId();
         String channelId = message.getForwardFromChat().getId().toString();
         Chat chat;
-        String channelLink;
         try {
             chat = bot.execute(new GetChat(channelId));
+            if (chat.getUserName() == null && chat.getInviteLink() == null){
+                return SendMessage.builder()
+                        .text("⚠️ Вы не выдали права боту, на приглашения!")
+                        .chatId(chatId)
+                        .build();
+            }
         } catch (TelegramApiException e) {
-            System.out.println(e.getMessage());
-            return SendMessage.builder()
-                    .text("❗️Ошибка❗️\n\n" +
-                            "Проверьте, является ли наш бот администратором Вашего канала?")
-                    .chatId(chatId)
-                    .build();
-        }
-        if (chat.getUserName() != null){
-            channelLink = chat.getUserName();
-        } else if (chat.getInviteLink() != null) {
-            channelLink = chat.getInviteLink().replace("https://t.me/", "");
-        } else {
             return SendMessage.builder()
                     .text("❗️Ошибка❗️\n\n" +
                             "Проверьте, является ли наш бот администратором Вашего канала?")
@@ -160,9 +149,8 @@ public class OnForwardHandler implements Handler {
         }
         float writeOfAmount = Integer.parseInt(amount) * config.getChannelOrderPrice();
 
-        Message messageInInfoChannel;
         try {
-            messageInInfoChannel= bot.execute(channelPromoter.addTaskToInfoChannel(amount, infoChannelId));
+            bot.execute(channelPromoter.addTaskToInfoChannel(amount, infoChannelId));
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
         }
@@ -180,13 +168,12 @@ public class OnForwardHandler implements Handler {
         String[] lastMessage = userService.getLastMessage(message.getChatId()).split(" ");
 
         Order order = new Order();
-        order.setId(channelLink);
+        order.setLink(channelId);
         order.setAuthor(userDB);
         order.setAmount(Integer.parseInt(lastMessage[1]));
         order.setType(Order.Type.CHANNEL);
         order.setTasks(new ArrayList<>());
 
-        order.setMidInInfoChannel(messageInInfoChannel.getMessageId());
         orderService.add(order);
         SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
                 .chatId(message.getChatId());

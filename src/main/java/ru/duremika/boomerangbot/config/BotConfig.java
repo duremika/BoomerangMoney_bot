@@ -2,11 +2,11 @@ package ru.duremika.boomerangbot.config;
 
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Configuration;
 
 import java.text.DecimalFormat;
 
-@Component
+@Configuration
 @Getter
 public class BotConfig {
     @Value("${bot.name}")
@@ -17,7 +17,7 @@ public class BotConfig {
 
     private final String infoChannelId = "-1001697520335";
     private final String viewsChannelId = "-1001718302900";
-    private final DecimalFormat decimalFormat = new DecimalFormat("#.##");
+    private final DecimalFormat decimalFormat = new DecimalFormat("0.00");
 
 
     private final float postOrderPrice = 0.05f;

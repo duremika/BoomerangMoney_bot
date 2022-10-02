@@ -8,5 +8,5 @@ import java.util.Optional;
 
 
 public interface TaskRepository extends CrudRepository<Task, Long> {
-    Optional<Task> getTaskByOrder_idAndUser(String order_id, User user);
+    Optional<Task> getTaskByOrder_idAndUser(Long order_id, User user);
 }

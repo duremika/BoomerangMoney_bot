@@ -146,6 +146,21 @@ public class Keyboards {
                 .build();
     }
 
+    public InlineKeyboardMarkup groupInlineKeyboard() {
+        return InlineKeyboardMarkup.builder()
+                .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDC65 Добавить группу") {{
+                    setCallbackData("add_group");
+                }}))
+                .keyboardRow(List.of(new InlineKeyboardButton("⏱ Активные заказы") {{
+                    setCallbackData("active_group_orders");
+                }}, new InlineKeyboardButton("✅ Завершённые заказы") {{
+                    setCallbackData("completed_group_orders");
+                }}))
+                .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
+                    setCallbackData("promotion");
+                }}))
+                .build();
+    }
 
     public InlineKeyboardMarkup captchaInlineKeyboard(int result) {
         int[] buttons = generateButtonsForCaptcha(result);
@@ -162,7 +177,6 @@ public class Keyboards {
                         }}
                 )).build();
     }
-
 
     private int[] generateButtonsForCaptcha(int result) {
         int[] buttons = new int[3];

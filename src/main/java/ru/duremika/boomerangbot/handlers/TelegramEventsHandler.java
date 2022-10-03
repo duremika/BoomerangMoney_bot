@@ -56,6 +56,9 @@ public class TelegramEventsHandler implements Handler {
     private int minChannelOrderAmount;
     private float channelSubscribePrice;
 
+
+    private float groupOrderPrice;
+    private int mingroupOrderAmount;
     private float groupJoinPrice;
 
     private float botStartPrice;
@@ -85,6 +88,8 @@ public class TelegramEventsHandler implements Handler {
         minChannelOrderAmount = config.getMinChannelOrderAmount();
         channelSubscribePrice = config.getChannelSubscribePrice();
 
+        groupOrderPrice = config.getGroupOrderPrice();
+        mingroupOrderAmount = config.getMinGroupOrderAmount();
         groupJoinPrice = config.getGroupJoinPrice();
 
         botStartPrice = config.getBotStartPrice();
@@ -268,7 +273,7 @@ public class TelegramEventsHandler implements Handler {
 
             editMessageTextBuilder
                     .text("\uD83D\uDCDD Подпишитесь на канал и посмотрите последние 7 постов, затем вернитесь в бот и получите вознаграждение!\n\n" +
-                            "⚠️ Запрещено отписываться от каналов, иначе Вы можете быть оштрафованы!")
+                            "⚠️ Запрещено отписываться от каналов, иначе вы можете быть оштрафованы!")
                     .replyMarkup(keyboards.channelEarnInlineKeyboard(link, order.getId()));
         }
         return editMessageTextBuilder.build();
@@ -509,7 +514,7 @@ public class TelegramEventsHandler implements Handler {
                 .chatId(message.getChatId());
         if (amount < minPostOrderAmount) {
             sendMessageBuilder.text("❗️Ошибка❗️\n\n" +
-                            "Минимальный заказ - " + minPostOrderAmount + " просмотров")
+                            "Минимальный заказ - " + minPostOrderAmount + " просмотров!")
                     .replyMarkup(keyboards.toMainReplyKeyboardMarkup());
             return sendMessageBuilder.build();
         }
@@ -614,7 +619,7 @@ public class TelegramEventsHandler implements Handler {
                             " *5000* просмотров *+1000* в подарок!\n\n" +
                             "\uD83D\uDC64 1 подписчик - *" + decimalFormat.format(channelOrderPrice) + "₽*\n" +
                             "\uD83D\uDCB3 Рекламный баланс - " + decimalFormat.format(advertisingBalance) + "₽\n" +
-                            "\uD83D\uDCCA Его хватит на " + (int) (advertisingBalance / channelOrderPrice) + " просмотров\n\n" +
+                            "\uD83D\uDCCA Его хватит на " + (int) (advertisingBalance / channelOrderPrice) + " подписчиков\n\n" +
                             "⏱ Активных заказов: " + amountActiveOrders +
                             "\n✅ Завершённых заказов: " + amountCompletedOrders +
                             "\n\n❗️ Наш бот @[" + bot.getBotUsername() + "] должен быть администратором продвигаемого канала";
@@ -645,7 +650,7 @@ public class TelegramEventsHandler implements Handler {
                 .chatId(message.getChatId());
         if (amount < minChannelOrderAmount) {
             sendMessageBuilder.text("❗️Ошибка❗️\n\n" +
-                            "Минимальный заказ - " + minChannelOrderAmount + " подписчиков")
+                            "Минимальный заказ - " + minChannelOrderAmount + " подписчиков!")
                     .replyMarkup(keyboards.toMainReplyKeyboardMarkup());
             return sendMessageBuilder.build();
         }
@@ -656,10 +661,10 @@ public class TelegramEventsHandler implements Handler {
         }
         float advertisingBalance = optionalUser.get().getBalance().getAdvertising();
         if (amount * channelOrderPrice > advertisingBalance) {
-            sendMessageBuilder.text(amount + " просмотров ✖️ " + decimalFormat.format(channelOrderPrice) + " ₽ = " + decimalFormat.format(amount * channelOrderPrice) + " рублей\n\n" +
+            sendMessageBuilder.text(amount + " подписчиков ✖️ " + decimalFormat.format(channelOrderPrice) + " ₽ = " + decimalFormat.format(amount * channelOrderPrice) + " рублей\n\n" +
                     "❗️ Недостаточно средств на балансе! Введите другое число:");
         } else {
-            sendMessageBuilder.text(amount + " просмотров ✖️ " + decimalFormat.format(channelOrderPrice) + " ₽ = " + decimalFormat.format(amount * channelOrderPrice) + " рублей\n\n" +
+            sendMessageBuilder.text(amount + " подписчиков ✖️ " + decimalFormat.format(channelOrderPrice) + " ₽ = " + decimalFormat.format(amount * channelOrderPrice) + " рублей\n\n" +
                     "\uD83D\uDCAC Для запуска задания добавьте нашего бота @" + bot.getBotUsername() + " в администраторы Вашего канала, а затем перешлите любое сообщение из этого канала\n\n" +
                     "⚠️ Канал может быть ПУБЛИЧНЫМ и ПРИВАТНЫМ, не удаляйте бота из админов до конца раскрутки!");
         }
@@ -708,6 +713,152 @@ public class TelegramEventsHandler implements Handler {
 
         if (completedOrderList.size() == 0) {
             text.append("\n\uD83D\uDE1E У Вас нет ни одного завершённого заказа на подписки");
+        } else {
+            int start = completedOrderList.size() <= 10 ? 0 : completedOrderList.size() - 11;
+            for (int i = start; i < completedOrderList.size(); i++) {
+                Order order = completedOrderList.get(i);
+
+                String link;
+                Chat chat;
+                try {
+                    chat = bot.execute(new GetChat(String.valueOf(order.getLink())));
+                    link = chat.getUserName() != null ? "https://t.me/" + chat.getUserName() : chat.getInviteLink();
+                } catch (TelegramApiException e) {
+                    throw new RuntimeException(e);
+                }
+
+                text.append("\n▫️ ").append(link)
+                        .append("\nВыполнено: ").append(order.getPerformed())
+                        .append(" из ").append(order.getAmount()).append(" раз");
+            }
+        }
+
+        return EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .text(String.valueOf(text))
+                .disableWebPagePreview(true)
+                .build();
+    }
+
+    @Filter(callback = "group")
+    EditMessageText group(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        EditMessageText.EditMessageTextBuilder editMessageTextBuilder = EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .parseMode(ParseMode.MARKDOWN);
+        List<Order> orderList = orderService.getUserOrders(new User(chatId));
+        long amountActiveOrders = orderList.stream()
+                .filter(order -> order.getAmount() > order.getPerformed() && order.getType().equals(Order.Type.GROUP))
+                .count();
+        long amountCompletedOrders = orderList.stream()
+                .filter(order -> order.getAmount() <= order.getPerformed() && order.getType().equals(Order.Type.GROUP))
+                .count();
+        userService.findUser(chatId).ifPresentOrElse(
+                user -> {
+                    float advertisingBalance = user.getBalance().getAdvertising();
+                    String text = "\uD83D\uDC65 *Наш бот предлагает Вам уникальную возможность накрутки участников в ПУБЛИЧНЫЕ и ПРИВАТНЫЕ супергруппы*\n\n" +
+                            " \uD83C\uDF81АКЦИЯ При заказе от:\n" +
+                            " *500* подписок *+25* в подарок!\n" +
+                            " *1000* подписок *+100* в подарок!\n" +
+                            " *2000* просмотров *+300* в подарок!\n" +
+                            " *5000* просмотров *+1000* в подарок!\n\n" +
+                            "\uD83D\uDC64 1 участник - *" + decimalFormat.format(groupOrderPrice) + "₽*\n" +
+                            "\uD83D\uDCB3 Рекламный баланс - " + decimalFormat.format(advertisingBalance) + "₽\n" +
+                            "\uD83D\uDCCA Его хватит на " + (int) (advertisingBalance / groupOrderPrice) + " переходов\n\n" +
+                            "⏱ Активных заказов: " + amountActiveOrders +
+                            "\n✅ Завершённых заказов: " + amountCompletedOrders;
+                    editMessageTextBuilder
+                            .text(text)
+                            .parseMode(ParseMode.MARKDOWN)
+                            .replyMarkup(keyboards.groupInlineKeyboard());
+                },
+                () -> editMessageTextBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
+        );
+        return editMessageTextBuilder.build();
+    }
+
+    @Filter(callback = "add_group")
+    EditMessageText addGroup(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        return EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .text("\uD83D\uDCDD Введите количество участников:")
+                .build();
+    }
+
+    SendMessage amountMembersGroup(Message message) {
+        int amount = Integer.parseInt(message.getText());
+        SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
+                .chatId(message.getChatId());
+        if (amount < mingroupOrderAmount) {
+            sendMessageBuilder.text("❗️Ошибка❗️\n\n" +
+                            "Минимальный заказ - " + mingroupOrderAmount + " участников!")
+                    .replyMarkup(keyboards.toMainReplyKeyboardMarkup());
+            return sendMessageBuilder.build();
+        }
+
+        Optional<User> optionalUser = userService.findUser(message.getChatId());
+        if (optionalUser.isEmpty()) {
+            return sendMessageBuilder.text("Что то пошло не так. Попробуйте перезапустить бота").build();
+        }
+        float advertisingBalance = optionalUser.get().getBalance().getAdvertising();
+        if (amount * groupOrderPrice > advertisingBalance) {
+            sendMessageBuilder.text(amount + " участников ✖️ " + decimalFormat.format(groupOrderPrice) + " ₽ = " + decimalFormat.format(amount * groupOrderPrice) + " рублей\n\n" +
+                    "❗️ Недостаточно средств на балансе! Введите другое число:");
+        } else {
+            sendMessageBuilder.text(amount + " участников ✖️ " + decimalFormat.format(groupOrderPrice) + " ₽ = " + decimalFormat.format(amount * groupOrderPrice) + " рублей\n\n" +
+                    "\uD83D\uDCAC Для запуска задания добавьте нашего бота @" + bot.getBotUsername() + " в администраторы Вашей группы, а затем отправьте её USERNAME или CHAT_ID вашей группы:");
+        }
+        return sendMessageBuilder.build();
+    }
+
+    @Filter(callback = "active_group_orders")
+    EditMessageText activeGroupOrders(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        StringBuilder text = new StringBuilder("\uD83D\uDCE2 Ваши активные заказы на вступления в группы:\n");
+        List<Order> orderList = orderService.getUserOrders(new User(chatId));
+        List<Order> activeOrderList = orderList.stream()
+                .filter(order -> order.getAmount() > order.getPerformed() && order.getType().equals(Order.Type.GROUP))
+                .sorted(Comparator.comparing(Order::getId))
+                .collect(Collectors.toList());
+
+
+        if (activeOrderList.size() == 0) {
+            text.append("\n\uD83D\uDE1E У Вас нет ни одного активного заказа на вступления в группу");
+        } else {
+            for (Order order : activeOrderList) {
+                text.append("\n▫️ https://t.me/").append(order.getLink()).append(" - Выполнено: ")
+                        .append(order.getPerformed()).append(" из ").append(order.getAmount()).append(" раз");
+            }
+        }
+
+        return EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .text(String.valueOf(text))
+                .disableWebPagePreview(true)
+                .build();
+    }
+
+    @Filter(callback = "completed_group_orders")
+    EditMessageText completedGroupOrders(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        StringBuilder text = new StringBuilder("\uD83D\uDCE2 Ваши 10 последних, завершённых заказов на вступления в группы:\n");
+        List<Order> orderList = orderService.getUserOrders(new User(chatId));
+        List<Order> completedOrderList = orderList.stream()
+                .filter(order -> order.getAmount() <= order.getPerformed() && order.getType().equals(Order.Type.GROUP))
+                .sorted(Comparator.comparing(Order::getId))
+                .collect(Collectors.toList());
+
+        if (completedOrderList.size() == 0) {
+            text.append("\n\uD83D\uDE1E У Вас нет ни одного завершённого заказа на вступления в группу");
         } else {
             int start = completedOrderList.size() <= 10 ? 0 : completedOrderList.size() - 11;
             for (int i = start; i < completedOrderList.size(); i++) {
@@ -876,6 +1027,8 @@ public class TelegramEventsHandler implements Handler {
                 return amountPosts(message);
             case "add_channel":
                 return amountChannelSubscriber(message);
+            case "add_group":
+                return amountMembersGroup(message);
             default:
                 return bot.error(update);
         }

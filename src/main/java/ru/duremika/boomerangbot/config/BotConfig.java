@@ -29,6 +29,8 @@ public class BotConfig {
     private final int minChannelOrderAmount = 2;
     private final float channelSubscribePrice = 0.2f;
 
+    private final float groupOrderPrice = 0.4f;
+    private final int minGroupOrderAmount = 2;
     private final float groupJoinPrice = 0.3f;
 
     private final float botStartPrice = 0.15f;

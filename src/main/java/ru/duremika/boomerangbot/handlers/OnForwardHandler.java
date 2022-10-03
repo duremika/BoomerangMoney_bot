@@ -182,7 +182,7 @@ public class OnForwardHandler implements Handler {
                     userService.writeOfFromAdvertising(user.getId(), writeOfAmount);
                     String text = "✅ Канал добавлен! ✅\n\n" +
                             "\uD83D\uDCB8 С Вашего баланса списано " + decimalFormat.format(writeOfAmount) + "₽\n\n" +
-                            "♻️ В случае отписки пользователем от Вашего канала Вы получите компенсацию на рекламный баланс в полном размере";
+                            "♻️ В случае отписки пользователем от вашего канала вы получите компенсацию на рекламный баланс в полном размере";
 
                     sendMessageBuilder
                             .text(text);

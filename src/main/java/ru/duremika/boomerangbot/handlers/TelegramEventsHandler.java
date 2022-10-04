@@ -59,7 +59,7 @@ public class TelegramEventsHandler implements Handler {
 
 
     private float groupOrderPrice;
-    private int mingroupOrderAmount;
+    private int minGroupOrderAmount;
     private float groupJoinPrice;
 
     private float botStartPrice;
@@ -90,7 +90,7 @@ public class TelegramEventsHandler implements Handler {
         channelSubscribePrice = config.getChannelSubscribePrice();
 
         groupOrderPrice = config.getGroupOrderPrice();
-        mingroupOrderAmount = config.getMinGroupOrderAmount();
+        minGroupOrderAmount = config.getMinGroupOrderAmount();
         groupJoinPrice = config.getGroupJoinPrice();
 
         botStartPrice = config.getBotStartPrice();
@@ -906,9 +906,9 @@ public class TelegramEventsHandler implements Handler {
         int amount = Integer.parseInt(message.getText());
         SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
                 .chatId(message.getChatId());
-        if (amount < mingroupOrderAmount) {
+        if (amount < minGroupOrderAmount) {
             sendMessageBuilder.text("❗️Ошибка❗️\n\n" +
-                            "Минимальный заказ - " + mingroupOrderAmount + " участников!")
+                            "Минимальный заказ - " + minGroupOrderAmount + " участников!")
                     .replyMarkup(keyboards.toMainReplyKeyboardMarkup());
             return sendMessageBuilder.build();
         }

@@ -334,7 +334,7 @@ public class Keyboards {
                     setCallbackData("check_subscribe " + orderId);
                 }}))
                 .keyboardRow(List.of(new InlineKeyboardButton("▶️ Пропустить задание") {{
-                    setCallbackData("ignore_subscribe " + orderId);
+                    setCallbackData("ignore_task " + orderId);
                 }}))
                 .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
                     setCallbackData("earn");
@@ -351,7 +351,7 @@ public class Keyboards {
                     setCallbackData("check_member " + orderId);
                 }}))
                 .keyboardRow(List.of(new InlineKeyboardButton("▶️ Пропустить задание") {{
-                    setCallbackData("ignore_member " + orderId);
+                    setCallbackData("ignore_task " + orderId);
                 }}))
                 .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
                     setCallbackData("earn");
@@ -363,6 +363,14 @@ public class Keyboards {
         return InlineKeyboardMarkup.builder()
                 .keyboardRow(List.of(new InlineKeyboardButton("▶️ Следующее задание") {{
                     setCallbackData("next_task_channel");
+                }}))
+                .build();
+    }
+
+    public InlineKeyboardMarkup nextTaskGroupInlineKeyboard(){
+        return InlineKeyboardMarkup.builder()
+                .keyboardRow(List.of(new InlineKeyboardButton("▶️ Следующее задание") {{
+                    setCallbackData("next_task_group");
                 }}))
                 .build();
     }

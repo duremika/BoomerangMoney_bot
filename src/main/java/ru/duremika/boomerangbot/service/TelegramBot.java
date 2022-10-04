@@ -147,8 +147,13 @@ public class TelegramBot extends TelegramLongPollingBot {
                         selectedMethod = Map.entry(method, handler);
                         break loop;
                     }
-                    if (Arrays.asList(filter.callback()).contains("ignore_subscribe") &&
-                            MessageType.CALLBACK.equals(messageType) && callback.contains("ignore_subscribe")) {
+                    if (Arrays.asList(filter.callback()).contains("ignore_task") &&
+                            MessageType.CALLBACK.equals(messageType) && callback.contains("ignore_task")) {
+                        selectedMethod = Map.entry(method, handler);
+                        break loop;
+                    }
+                    if (Arrays.asList(filter.callback()).contains("check_member") &&
+                            MessageType.CALLBACK.equals(messageType) && callback.contains("check_member")) {
                         selectedMethod = Map.entry(method, handler);
                         break loop;
                     }

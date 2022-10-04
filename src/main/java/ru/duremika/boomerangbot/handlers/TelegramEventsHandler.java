@@ -235,7 +235,7 @@ public class TelegramEventsHandler implements Handler {
                 "₽\n\n\uD83D\uDC41 Заданий на просмотр: " + availablePostOrders +
                 "\n\uD83D\uDCE2 Заданий на подписку: " + availableChannelOrders +
                 "\n\uD83D\uDC64 Заданий на группы: " + availableGroupOrders +
-                "\n\uD83E\uDD16 Заданий на боты: " + availableGroupOrders +
+                "\n\uD83E\uDD16 Заданий на боты: " + availableBotOrders +
                 "\n♻️ Доп. заработок: " + availableExtendedOrders +
                 "\n\n\uD83D\uDD14Выбери способ заработка\uD83D\uDC47";
         return EditMessageText.builder()
@@ -278,20 +278,6 @@ public class TelegramEventsHandler implements Handler {
                     .replyMarkup(keyboards.channelEarnInlineKeyboard(link, order.getId()));
         }
         return editMessageTextBuilder.build();
-    }
-
-    @Filter(callback = "ignore_subscribe")
-    EditMessageText ignoreSubscribe(Update update){
-        Long chatId = update.getCallbackQuery().getMessage().getChatId();
-        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
-        String orderId = update.getCallbackQuery().getData().split(" ")[1];
-        Order order = orderService.getOrderById(Long.parseLong(orderId));
-        Task task = new Task();
-        task.setOrder(order);
-        task.setUser(new User(chatId));
-        task.setStatus(Task.STATUS.IGNORED);
-        taskService.add(task);
-        return earnSubscribeChannel(update);
     }
 
     @Filter(callback = "check_subscribe")
@@ -339,7 +325,7 @@ public class TelegramEventsHandler implements Handler {
                     String link;
                     Chat chat;
                     try {
-                        chat = bot.execute(new GetChat(String.valueOf(order.getLink())));
+                        chat = bot.execute(new GetChat(order.getLink()));
                         link = chat.getUserName() != null ? "https://t.me/" + chat.getUserName() : chat.getInviteLink();
                     } catch (TelegramApiException e) {
                         throw new RuntimeException(e);
@@ -351,7 +337,7 @@ public class TelegramEventsHandler implements Handler {
                             .disableWebPagePreview(false)
                             .build());
                 } catch (TelegramApiException e) {
-                    throw new RuntimeException(e);
+                    e.printStackTrace();
                 }
             }
 
@@ -362,6 +348,20 @@ public class TelegramEventsHandler implements Handler {
                     .replyMarkup(keyboards.nextTaskChannelInlineKeyboard())
                     .build();
         }
+    }
+
+    @Filter(callback = "ignore_task")
+    EditMessageText ignoreTask(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        String orderId = update.getCallbackQuery().getData().split(" ")[1];
+        Order order = orderService.getOrderById(Long.parseLong(orderId));
+        Task task = new Task();
+        task.setOrder(order);
+        task.setUser(new User(chatId));
+        task.setStatus(Task.STATUS.IGNORED);
+        taskService.add(task);
+        return earnSubscribeChannel(update);
     }
 
     @Filter(callback = {"earn_group", "next_task_group"})
@@ -380,12 +380,86 @@ public class TelegramEventsHandler implements Handler {
                     .replyMarkup(keyboards.backToEarnInlineKeyboard());
         } else {
             Order order = availableOrders.get(0);
+            String link;
+            Chat chat;
+            try {
+                chat = bot.execute(new GetChat(String.valueOf(order.getLink())));
+                link = chat.getUserName() != null ? "https://t.me/" + chat.getUserName() : chat.getInviteLink();
+                System.out.println(chat);
+            } catch (TelegramApiException e) {
+                throw new RuntimeException(e);
+            }
             editMessageTextBuilder
                     .text("\uD83D\uDCDD Вступите в группу, затем вернитесь в бот и получите вознаграждение!\n\n" +
                             "⚠️ Запрещено выходить из групп, иначе Вы можете быть оштрафованы!")
-                    .replyMarkup(keyboards.groupEarnInlineKeyboard(order.getLink(), order.getId()));
+                    .replyMarkup(keyboards.groupEarnInlineKeyboard(link, order.getId()));
         }
         return editMessageTextBuilder.build();
+    }
+
+    @Filter(callback = "check_member")
+    BotApiMethod<? extends Serializable> checkMember(Update update) {
+        String orderId = update.getCallbackQuery().getData().split(" ")[1];
+        boolean notSubscribe;
+        try {
+            Order order = orderService.getOrderById(Long.parseLong(orderId));
+            ChatMember chatMember = bot.execute(new GetChatMember(order.getLink(), update.getCallbackQuery().getFrom().getId()));
+            notSubscribe = chatMember.getStatus().equals("left");
+            System.out.println(chatMember);
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
+            String callbackQueryId = update.getCallbackQuery().getId();
+            return AnswerCallbackQuery.builder()
+                    .callbackQueryId(callbackQueryId)
+                    .text("❗️Ошибка ❗️\n\nВы не вступили в группу!")
+                    .showAlert(true)
+                    .build();
+        }
+        if (notSubscribe) {
+            String callbackQueryId = update.getCallbackQuery().getId();
+            return AnswerCallbackQuery.builder()
+                    .callbackQueryId(callbackQueryId)
+                    .text("❗️Ошибка ❗️\n\nВы не вступили в группу!")
+                    .showAlert(true)
+                    .build();
+        } else {
+            Long chatId = update.getCallbackQuery().getMessage().getChatId();
+            Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+            String amount = decimalFormat.format(groupJoinPrice);
+            Order order = orderService.getOrderById(Long.parseLong(orderId));
+
+            User user = new User(chatId);
+            Task task = new Task();
+            task.setOrder(order);
+            task.setUser(user);
+            task.setStatus(Task.STATUS.COMPLETED);
+            order.setPerformed(order.getPerformed() + 1);
+            orderService.add(order);
+            taskService.add(task);
+            userService.replenishMainBalance(chatId, groupJoinPrice);
+
+            if (order.getPerformed() >= order.getAmount()) {
+                try {
+                    Chat chat = bot.execute(new GetChat(order.getLink()));
+                    String link = chat.getUserName() != null ? "https://t.me/" + chat.getUserName() : chat.getInviteLink();
+
+                    bot.execute(SendMessage.builder()
+                            .chatId(order.getAuthor().getId())
+                            .text("✅Ваш заказ на " + order.getAmount() + " участников в группу " + order.getLink() + " выполнен!")
+                            .disableWebPagePreview(false)
+                            .build());
+                } catch (TelegramApiException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            return EditMessageText.builder()
+                    .chatId(chatId)
+                    .messageId(messageId)
+                    .text("\uD83D\uDCB0 Вам начислено " + amount + " за вступление в группу!")
+                    .replyMarkup(keyboards.nextTaskGroupInlineKeyboard())
+                    .build();
+        }
     }
 
     @Filter(text = "\uD83D\uDCE2 Продвижение")
@@ -524,16 +598,7 @@ public class TelegramEventsHandler implements Handler {
             int start = completedOrderList.size() <= 10 ? 0 : completedOrderList.size() - 11;
             for (int i = start; i < completedOrderList.size(); i++) {
                 Order order = completedOrderList.get(i);
-                String link;
-                Chat chat;
-                try {
-                    chat = bot.execute(new GetChat(String.valueOf(order.getLink())));
-                    link = chat.getUserName() != null ? "https://t.me/" + chat.getUserName() : chat.getInviteLink();
-                } catch (TelegramApiException e) {
-                    throw new RuntimeException(e);
-                }
-
-                text.append("\n▫️ ").append(link)
+                text.append("\n▫️ https://t.me/").append(order.getLink())
                         .append("\nВыполнено: ").append(order.getPerformed()).append(" из ")
                         .append(order.getAmount()).append(" раз");
             }
@@ -726,7 +791,15 @@ public class TelegramEventsHandler implements Handler {
             text.append("\n\uD83D\uDE1E У Вас нет ни одного активного заказа на подписки");
         } else {
             for (Order order : activeOrderList) {
-                text.append("\n▫️ https://t.me/").append(order.getLink()).append(" - Выполнено: ")
+                Chat chat;
+                try {
+                    chat = bot.execute(new GetChat(order.getLink()));
+                } catch (TelegramApiException e) {
+                    continue;
+                }
+                String link = chat.getUserName() != null ? "https://t.me/" + chat.getUserName() : chat.getInviteLink();
+                
+                text.append("\n▫️ ").append(link).append(" - Выполнено: ")
                         .append(order.getPerformed()).append(" из ").append(order.getAmount()).append(" раз");
             }
         }
@@ -757,14 +830,13 @@ public class TelegramEventsHandler implements Handler {
             for (int i = start; i < completedOrderList.size(); i++) {
                 Order order = completedOrderList.get(i);
 
-                String link;
                 Chat chat;
                 try {
-                    chat = bot.execute(new GetChat(String.valueOf(order.getLink())));
-                    link = chat.getUserName() != null ? "https://t.me/" + chat.getUserName() : chat.getInviteLink();
+                    chat = bot.execute(new GetChat(order.getLink()));
                 } catch (TelegramApiException e) {
-                    throw new RuntimeException(e);
+                    continue;
                 }
+                String link = chat.getUserName() != null ? "https://t.me/" + chat.getUserName() : chat.getInviteLink();
 
                 text.append("\n▫️ ").append(link)
                         .append("\nВыполнено: ").append(order.getPerformed())
@@ -872,7 +944,14 @@ public class TelegramEventsHandler implements Handler {
             text.append("\n\uD83D\uDE1E У Вас нет ни одного активного заказа на вступления в группу");
         } else {
             for (Order order : activeOrderList) {
-                text.append("\n▫️ https://t.me/").append(order.getLink()).append(" - Выполнено: ")
+                Chat chat;
+                try {
+                    chat = bot.execute(new GetChat(order.getLink()));
+                } catch (TelegramApiException e) {
+                    continue;
+                }
+                String link = chat.getUserName() != null ? "https://t.me/" + chat.getUserName() : chat.getInviteLink();
+                text.append("\n▫️ ").append(link).append(" - Выполнено: ")
                         .append(order.getPerformed()).append(" из ").append(order.getAmount()).append(" раз");
             }
         }
@@ -903,14 +982,13 @@ public class TelegramEventsHandler implements Handler {
             for (int i = start; i < completedOrderList.size(); i++) {
                 Order order = completedOrderList.get(i);
 
-                String link;
                 Chat chat;
                 try {
-                    chat = bot.execute(new GetChat(String.valueOf(order.getLink())));
-                    link = chat.getUserName() != null ? "https://t.me/" + chat.getUserName() : chat.getInviteLink();
+                    chat = bot.execute(new GetChat(order.getLink()));
                 } catch (TelegramApiException e) {
-                    throw new RuntimeException(e);
+                    continue;
                 }
+                String link = chat.getUserName() != null ? "https://t.me/" + chat.getUserName() : chat.getInviteLink();
 
                 text.append("\n▫️ ").append(link)
                         .append("\nВыполнено: ").append(order.getPerformed())

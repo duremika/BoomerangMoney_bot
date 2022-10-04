@@ -53,48 +53,52 @@ public class GroupPromoter {
         if (link == null) {
            bot.execute(botNotAdminGroup(update, group));
         } else {
-            Optional<User> optionalUserDB = userService.findUser(message.getFrom().getId());
-            User userDB;
-            if (optionalUserDB.isPresent()) {
-                userDB = optionalUserDB.get();
-            } else {
-               bot.execute(SendMessage.builder()
-                        .chatId(message.getChatId())
-                        .text("Что то пошло не так. Попробуйте перезапустить бота")
-                        .build());
-                return;
-            }
-            String[] lastMessage = userDB.getLastMessage().split(" ");
-
-
-            Order order = new Order();
-            order.setLink(link);
-            order.setAuthor(userDB);
-            order.setAmount(Integer.parseInt(lastMessage[1]));
-            order.setType(Order.Type.GROUP);
-            order.setTasks(new ArrayList<>());
-
-            orderService.add(order);
-            float writeOfAmount = 0.4f;
-            DecimalFormat decimalFormat = new DecimalFormat("0.00");
-
-            userService.writeOfFromAdvertising(userDB.getId(), writeOfAmount);
-
-           bot.execute(SendMessage.builder()
-                    .chatId(message.getChatId())
-                    .text("✅ Группа добавлена! ✅\n\n" +
-                            "\uD83D\uDCB8 С Вашего баланса списано " + decimalFormat.format(writeOfAmount) + "₽\n\n" +
-                            "♻️ В случае выхода пользователя из вашей группы вы получите компенсацию на рекламный баланс в полном размере")
-                    .build()
-
-            );
-
-           bot.execute(SendMessage.builder()
-                    .text("\uD83D\uDE80 Доступно новое задание на " + lastMessage[1] + " переход")
-                    .chatId("-1001697520335")
-                    .replyMarkup(keyboards.addChannelToInfoChannelInlineKeyboard())
-                    .build());
+            addGroupOrder(message, usernameOrChatId);
         }
+    }
+
+    private void addGroupOrder(Message message, String link) throws TelegramApiException{
+        Optional<User> optionalUserDB = userService.findUser(message.getFrom().getId());
+        User userDB;
+        if (optionalUserDB.isPresent()) {
+            userDB = optionalUserDB.get();
+        } else {
+            bot.execute(SendMessage.builder()
+                    .chatId(message.getChatId())
+                    .text("Что то пошло не так. Попробуйте перезапустить бота")
+                    .build());
+            return;
+        }
+        String[] lastMessage = userDB.getLastMessage().split(" ");
+
+
+        Order order = new Order();
+        order.setLink(link);
+        order.setAuthor(userDB);
+        order.setAmount(Integer.parseInt(lastMessage[1]));
+        order.setType(Order.Type.GROUP);
+        order.setTasks(new ArrayList<>());
+
+        orderService.add(order);
+        float writeOfAmount = 0.4f;
+        DecimalFormat decimalFormat = new DecimalFormat("0.00");
+
+        userService.writeOfFromAdvertising(userDB.getId(), writeOfAmount);
+
+        bot.execute(SendMessage.builder()
+                .chatId(message.getChatId())
+                .text("✅ Группа добавлена! ✅\n\n" +
+                        "\uD83D\uDCB8 С Вашего баланса списано " + decimalFormat.format(writeOfAmount) + "₽\n\n" +
+                        "♻️ В случае выхода пользователя из вашей группы вы получите компенсацию на рекламный баланс в полном размере")
+                .build()
+
+        );
+
+        bot.execute(SendMessage.builder()
+                .text("\uD83D\uDE80 Доступно новое задание на " + lastMessage[1] + " переход")
+                .chatId("-1001697520335")
+                .replyMarkup(keyboards.addChannelToInfoChannelInlineKeyboard())
+                .build());
     }
 
 

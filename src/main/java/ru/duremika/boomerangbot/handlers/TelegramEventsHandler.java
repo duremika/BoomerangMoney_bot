@@ -364,6 +364,30 @@ public class TelegramEventsHandler implements Handler {
         }
     }
 
+    @Filter(callback = {"earn_group", "next_task_group"})
+    EditMessageText earnJoinGroup(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        List<Order> availableOrders = orderService.getAvailableOrders(chatId, Order.Type.GROUP);
+
+        EditMessageText.EditMessageTextBuilder editMessageTextBuilder = EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId);
+
+        if (availableOrders.isEmpty()) {
+            editMessageTextBuilder
+                    .text("\uD83D\uDE1E Задания кончились! Попробуйте позднее")
+                    .replyMarkup(keyboards.backToEarnInlineKeyboard());
+        } else {
+            Order order = availableOrders.get(0);
+            editMessageTextBuilder
+                    .text("\uD83D\uDCDD Вступите в группу, затем вернитесь в бот и получите вознаграждение!\n\n" +
+                            "⚠️ Запрещено выходить из групп, иначе Вы можете быть оштрафованы!")
+                    .replyMarkup(keyboards.groupEarnInlineKeyboard(order.getLink(), order.getId()));
+        }
+        return editMessageTextBuilder.build();
+    }
+
     @Filter(text = "\uD83D\uDCE2 Продвижение")
     SendMessage promotion(Update update) {
         Long chatId = update.getMessage().getChatId();

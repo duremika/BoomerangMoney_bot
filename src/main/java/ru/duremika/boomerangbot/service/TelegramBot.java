@@ -137,13 +137,18 @@ public class TelegramBot extends TelegramLongPollingBot {
                         selectedMethod = Map.entry(method, handler);
                         break loop;
                     }
-                    if (Arrays.asList(filter.specialType()).contains("post_viewed") &&
+                    if (Arrays.asList(filter.callback()).contains("post_viewed") &&
                             MessageType.CALLBACK.equals(messageType) && callback.contains("post_viewed")) {
                         selectedMethod = Map.entry(method, handler);
                         break loop;
                     }
-                    if (Arrays.asList(filter.specialType()).contains("check_subscribe") &&
+                    if (Arrays.asList(filter.callback()).contains("check_subscribe") &&
                             MessageType.CALLBACK.equals(messageType) && callback.contains("check_subscribe")) {
+                        selectedMethod = Map.entry(method, handler);
+                        break loop;
+                    }
+                    if (Arrays.asList(filter.callback()).contains("ignore_subscribe") &&
+                            MessageType.CALLBACK.equals(messageType) && callback.contains("ignore_subscribe")) {
                         selectedMethod = Map.entry(method, handler);
                         break loop;
                     }
@@ -171,7 +176,9 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             log.error("Failed to select method");
             try {
-                execute(error(update));
+                if (chatType.equals(Filter.ChatType.PRIVATE)) {
+                    execute(error(update));
+                }
             } catch (TelegramApiException ignored) {
             }
         }
@@ -215,7 +222,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    public SendMessage error(Update update) {
+    public SendMessage error(Update update)  {
         Message message = update.hasMessage() ? update.getMessage() : update.getCallbackQuery().getMessage();
         Long chatId = message.getChatId();
         return SendMessage.builder()

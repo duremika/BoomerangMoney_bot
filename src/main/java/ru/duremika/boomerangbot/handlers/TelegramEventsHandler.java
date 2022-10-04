@@ -280,7 +280,21 @@ public class TelegramEventsHandler implements Handler {
         return editMessageTextBuilder.build();
     }
 
-    @Filter(specialType = "check_subscribe")
+    @Filter(callback = "ignore_subscribe")
+    EditMessageText ignoreSubscribe(Update update){
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        String orderId = update.getCallbackQuery().getData().split(" ")[1];
+        Order order = orderService.getOrderById(Long.parseLong(orderId));
+        Task task = new Task();
+        task.setOrder(order);
+        task.setUser(new User(chatId));
+        task.setStatus(Task.STATUS.IGNORED);
+        taskService.add(task);
+        return earnSubscribeChannel(update);
+    }
+
+    @Filter(callback = "check_subscribe")
     BotApiMethod<? extends Serializable> checkSubscribe(Update update) {
         String orderId = update.getCallbackQuery().getData().split(" ")[1];
         boolean notSubscribe;
@@ -536,7 +550,7 @@ public class TelegramEventsHandler implements Handler {
         return sendMessageBuilder.build();
     }
 
-    @Filter(specialType = "post_viewed", chatType = Filter.ChatType.CHANNEL)
+    @Filter(callback = "post_viewed", chatType = Filter.ChatType.CHANNEL)
     AnswerCallbackQuery postViewed(Update update) {
         String callbackQueryId = update.getCallbackQuery().getId();
         String callbackData = update.getCallbackQuery().getData();
@@ -907,9 +921,9 @@ public class TelegramEventsHandler implements Handler {
                             "\n" +
                             "\n➖➖➖➖➖➖➖➖➖" +
                             "\n✅ Выполнено:" +
-                            "\n\uD83D\uDC65 Подписок в каналы: " + user.getTasks().stream().filter(task -> task.getOrder().getType() == Order.Type.CHANNEL).count() +
-                            "\n\uD83D\uDC65 Подписок в группы: " + user.getTasks().stream().filter(task -> task.getOrder().getType() == Order.Type.GROUP).count() +
-                            "\n\uD83E\uDD16 Переходов в боты: " + user.getTasks().stream().filter(task -> task.getOrder().getType() == Order.Type.BOT).count() +
+                            "\n\uD83D\uDC65 Подписок в каналы: " + user.getTasks().stream().filter(task -> task.getOrder().getType() == Order.Type.CHANNEL && task.getStatus() == Task.STATUS.COMPLETED).count() +
+                            "\n\uD83D\uDC65 Подписок в группы: " + user.getTasks().stream().filter(task -> task.getOrder().getType() == Order.Type.GROUP && task.getStatus() == Task.STATUS.COMPLETED).count() +
+                            "\n\uD83E\uDD16 Переходов в боты: " + user.getTasks().stream().filter(task -> task.getOrder().getType() == Order.Type.BOT && task.getStatus() == Task.STATUS.COMPLETED).count() +
                             "\n\uD83D\uDC40 Просмотров: " + user.getTasks().stream().filter(task -> task.getOrder().getType() == Order.Type.POST).count() +
                             "\n\uD83D\uDCDD Расширенных заданий: " + user.getTasks().stream().filter(task -> task.getOrder().getType() == Order.Type.EXTENDED_TASK).count() +
                             "\n\uD83C\uDF81 Получено бонусов: " + user.getTasks().stream().filter(task -> task.getOrder().getType() == Order.Type.BONUS).count() +

@@ -4,6 +4,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
+import org.telegram.telegrambots.meta.api.methods.GetUserProfilePhotos;
 import org.telegram.telegrambots.meta.api.methods.ParseMode;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChat;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatMember;
@@ -135,13 +136,13 @@ public class TelegramEventsHandler implements Handler {
         String username = update.getMessage().getFrom().getUserName();
 
         try {
-            if (bot.checkSubscribeToInfoChannel(chatId)) {
+            if (bot.execute(new GetChatMember(config.getInfoChannelId(), chatId)).getStatus().equals("left")) {
                 return notInInfoChannel(chatId);
-            } else if (bot.checkProfilePhoto(chatId)) {
+            } else if (bot.execute(new GetUserProfilePhotos(chatId, 0, 1)).getTotalCount() == 0) {
                 return hasNotPhoto(chatId);
             } else if (username == null) {
                 return hasNotUsername(chatId);
-            } else if (bot.checkSubscribeToViewsChannel(chatId)) {
+            } else if (bot.execute(new GetChatMember(config.getViewsChannelId(), chatId)).getStatus().equals("left")) {
                 return notInViewerChannel(chatId);
             } else {
                 return captcha(chatId);

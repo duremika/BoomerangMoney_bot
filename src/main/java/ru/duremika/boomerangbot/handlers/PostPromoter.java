@@ -1,4 +1,4 @@
-package ru.duremika.boomerangbot.service;
+package ru.duremika.boomerangbot.handlers;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

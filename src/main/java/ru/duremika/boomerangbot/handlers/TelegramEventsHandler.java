@@ -1014,13 +1014,23 @@ public class TelegramEventsHandler implements Handler {
                 user -> {
                     long delta = System.currentTimeMillis() - user.getCreatedAt().getTime();
                     long days = TimeUnit.DAYS.convert(delta, TimeUnit.MILLISECONDS);
+
+                    StringBuilder achievmentList = new StringBuilder();
+                    if (user.getTasks().size() > 5) achievmentList.append("\uD83D\uDC76");
+                    if (user.getTasks().size() > 100) achievmentList.append("🤠");
+                    if (user.getTasks().size() > 1000) achievmentList.append("\uD83E\uDEC5");
+//                    if (user. sponsor ) achievmentList.append("💸");
+                    if (days >= 365) achievmentList.append("⏳");
+
+
+
                     String text = "\uD83D\uDC68\u200D\uD83D\uDCBB Ваш кабинет:" +
                             "\n➖➖➖➖➖➖➖➖➖" +
                             "\n\uD83D\uDD5C Дней в боте: " + days +
                             "\n\uD83D\uDD11 Мой ID: " + user.getId() +
                             "\n\uD83C\uDF10 Мой статус: " + user.getStatus().getTitle() +
-                            "\n\uD83C\uDFC6 Мои достижения:⤵" +
-                            "\n" +
+                            "\n\uD83C\uDFC6 Мои достижения:⤵\n" +
+                            achievmentList +
                             "\n➖➖➖➖➖➖➖➖➖" +
                             "\n✅ Выполнено:" +
                             "\n\uD83D\uDC65 Подписок в каналы: " + user.getTasks().stream().filter(task -> task.getOrder().getType() == Order.Type.CHANNEL && task.getStatus() == Task.STATUS.COMPLETED).count() +

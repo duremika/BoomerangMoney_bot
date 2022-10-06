@@ -1085,6 +1085,66 @@ public class TelegramEventsHandler implements Handler {
         return sendMessageBuilder.build();
     }
 
+    @Filter(callback = "active_bot_orders")
+    EditMessageText activeBotOrders(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        StringBuilder text = new StringBuilder("\uD83D\uDCE2 Ваши активные заказы на переходы в боты:\n");
+        List<Order> orderList = orderService.getUserOrders(new User(chatId));
+        List<Order> activeOrderList = orderList.stream()
+                .filter(order -> order.getAmount() > order.getPerformed() && order.getType().equals(Order.Type.BOT))
+                .sorted(Comparator.comparing(Order::getId))
+                .collect(Collectors.toList());
+
+
+        if (activeOrderList.size() == 0) {
+            text.append("\n\uD83D\uDE1E У Вас нет ни одного активного заказа на переходы в ботов");
+        } else {
+            for (Order order : activeOrderList) {
+                text.append("\n▫️ https://t.me/").append(order.getLink()).append(" - Выполнено: ")
+                        .append(order.getPerformed()).append(" из ").append(order.getAmount()).append(" раз");
+            }
+        }
+
+        return EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .text(String.valueOf(text))
+                .disableWebPagePreview(true)
+                .build();
+    }
+
+    @Filter(callback = "completed_bot_orders")
+    EditMessageText completedBotOrders(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        StringBuilder text = new StringBuilder("\uD83D\uDCE2 Ваши 10 последних, завершённых заказов на переходы в боты:\n");
+        List<Order> orderList = orderService.getUserOrders(new User(chatId));
+        List<Order> completedOrderList = orderList.stream()
+                .filter(order -> order.getAmount() <= order.getPerformed() && order.getType().equals(Order.Type.GROUP))
+                .sorted(Comparator.comparing(Order::getId))
+                .collect(Collectors.toList());
+
+        if (completedOrderList.size() == 0) {
+            text.append("\n\uD83D\uDE1E У Вас нет ни одного завершённого заказа на переходы в ботов");
+        } else {
+            int start = completedOrderList.size() <= 10 ? 0 : completedOrderList.size() - 11;
+            for (int i = start; i < completedOrderList.size(); i++) {
+                Order order = completedOrderList.get(i);
+                text.append("\n▫️ https://t.me/").append(order.getLink())
+                        .append("\nВыполнено: ").append(order.getPerformed())
+                        .append(" из ").append(order.getAmount()).append(" раз");
+            }
+        }
+
+        return EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .text(String.valueOf(text))
+                .disableWebPagePreview(true)
+                .build();
+    }
+
     @Filter(text = "\uD83D\uDCF1 Мой кабинет")
     SendMessage myOffice(Update update) {
         Long chatId = update.getMessage().getChatId();

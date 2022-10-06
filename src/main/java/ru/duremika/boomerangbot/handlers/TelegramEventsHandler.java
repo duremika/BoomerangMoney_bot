@@ -1121,7 +1121,7 @@ public class TelegramEventsHandler implements Handler {
         StringBuilder text = new StringBuilder("\uD83D\uDCE2 Ваши 10 последних, завершённых заказов на переходы в боты:\n");
         List<Order> orderList = orderService.getUserOrders(new User(chatId));
         List<Order> completedOrderList = orderList.stream()
-                .filter(order -> order.getAmount() <= order.getPerformed() && order.getType().equals(Order.Type.GROUP))
+                .filter(order -> order.getAmount() <= order.getPerformed() && order.getType().equals(Order.Type.BOT))
                 .sorted(Comparator.comparing(Order::getId))
                 .collect(Collectors.toList());
 

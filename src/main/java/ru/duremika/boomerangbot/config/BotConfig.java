@@ -33,6 +33,9 @@ public class BotConfig {
     private final int minGroupOrderAmount = 2;
     private final float groupJoinPrice = 0.3f;
 
+
+    private final float botOrderPrice = 0.25f;
+    private final int minBotOrderAmount = 10;
     private final float botStartPrice = 0.15f;
 
     private final int inviteFriendPrice = 1;

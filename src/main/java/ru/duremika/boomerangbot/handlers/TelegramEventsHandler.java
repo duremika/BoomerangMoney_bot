@@ -62,6 +62,8 @@ public class TelegramEventsHandler implements Handler {
     private int minGroupOrderAmount;
     private float groupJoinPrice;
 
+    private float botOrderPrice;
+    private int minBotOrderAmoun;
     private float botStartPrice;
 
     private int inviteFriendPrice;
@@ -93,6 +95,8 @@ public class TelegramEventsHandler implements Handler {
         minGroupOrderAmount = config.getMinGroupOrderAmount();
         groupJoinPrice = config.getGroupJoinPrice();
 
+        botOrderPrice = config.getBotOrderPrice();
+        minBotOrderAmoun = config.getMinBotOrderAmount();
         botStartPrice = config.getBotStartPrice();
 
         inviteFriendPrice = config.getInviteFriendPrice();
@@ -520,7 +524,7 @@ public class TelegramEventsHandler implements Handler {
         userService.findUser(chatId).ifPresentOrElse(
                 user -> {
                     float advertisingBalance = user.getBalance().getAdvertising();
-                    String text = "\uD83D\uDC41 *Наш бот предлагает Вам возможность накрутки просмотров на любые посты*\n\n" +
+                    String text = "\uD83D\uDC41 *Наш бот предлагает вам возможность накрутки просмотров на любые посты*\n\n" +
                             " \uD83C\uDF81АКЦИЯ При заказе от:\n" +
                             " *1000* просмотров *+50* в подарок!\n" +
                             " *2000* просмотров *+200* в подарок!\n" +
@@ -715,7 +719,7 @@ public class TelegramEventsHandler implements Handler {
         userService.findUser(chatId).ifPresentOrElse(
                 user -> {
                     float advertisingBalance = user.getBalance().getAdvertising();
-                    String text = "\uD83D\uDCE2 *Наш бот предлагает Вам возможность накрутки подписчиков на Ваш ПУБЛИЧНЫЙ и ПРИВАТНЫЙ*\n\n" +
+                    String text = "\uD83D\uDCE2 *Наш бот предлагает вам возможность накрутки подписчиков на Ваш ПУБЛИЧНЫЙ и ПРИВАТНЫЙ*\n\n" +
                             " \uD83C\uDF81АКЦИЯ При заказе от:\n" +
                             " *500* подписок *+25* в подарок!\n" +
                             " *1000* подписок *+100* в подарок!\n" +
@@ -870,7 +874,7 @@ public class TelegramEventsHandler implements Handler {
         userService.findUser(chatId).ifPresentOrElse(
                 user -> {
                     float advertisingBalance = user.getBalance().getAdvertising();
-                    String text = "\uD83D\uDC65 *Наш бот предлагает Вам уникальную возможность накрутки участников в ПУБЛИЧНЫЕ и ПРИВАТНЫЕ супергруппы*\n\n" +
+                    String text = "\uD83D\uDC65 *Наш бот предлагает вам уникальную возможность накрутки участников в ПУБЛИЧНЫЕ и ПРИВАТНЫЕ супергруппы*\n\n" +
                             " \uD83C\uDF81АКЦИЯ При заказе от:\n" +
                             " *500* подписок *+25* в подарок!\n" +
                             " *1000* подписок *+100* в подарок!\n" +
@@ -1002,6 +1006,83 @@ public class TelegramEventsHandler implements Handler {
                 .text(String.valueOf(text))
                 .disableWebPagePreview(true)
                 .build();
+    }
+
+    @Filter(callback = "bot")
+    EditMessageText bot(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        EditMessageText.EditMessageTextBuilder editMessageTextBuilder = EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .parseMode(ParseMode.MARKDOWN);
+        List<Order> orderList = orderService.getUserOrders(new User(chatId));
+        long amountActiveOrders = orderList.stream()
+                .filter(order -> order.getAmount() > order.getPerformed() && order.getType().equals(Order.Type.BOT))
+                .count();
+        long amountCompletedOrders = orderList.stream()
+                .filter(order -> order.getAmount() <= order.getPerformed() && order.getType().equals(Order.Type.BOT))
+                .count();
+        userService.findUser(chatId).ifPresentOrElse(
+                user -> {
+                    float advertisingBalance = user.getBalance().getAdvertising();
+                    String text = "\uD83E\uDD16 *Наш бот предлагает вам уникальную возможность накрутки переходов на любой бот*\n\n" +
+                            " \uD83C\uDF81АКЦИЯ При заказе от:\n" +
+                            " *500* переходов *+25* в подарок!\n" +
+                            " *1000* переходов *+100* в подарок!\n" +
+                            " *2000* переходов *+300* в подарок!\n" +
+                            " *5000* переходов *+1000* в подарок!\n\n" +
+                            "\uD83D\uDC64 1 переход - *" + decimalFormat.format(botOrderPrice) + "₽*\n" +
+                            "\uD83D\uDCB3 Рекламный баланс - " + decimalFormat.format(advertisingBalance) + "₽\n" +
+                            "\uD83D\uDCCA Его хватит на " + (int) (advertisingBalance / botOrderPrice) + " переходов\n\n" +
+                            "⏱ Активных заказов: " + amountActiveOrders +
+                            "\n✅ Завершённых заказов: " + amountCompletedOrders +
+                            "\n\n❗️ Возможно продвижение реферальных ссылок";
+                    editMessageTextBuilder
+                            .text(text)
+                            .parseMode(ParseMode.MARKDOWN)
+                            .replyMarkup(keyboards.botInlineKeyboard());
+                },
+                () -> editMessageTextBuilder.text("Что то пошло не так. Попробуйте перезапустить бота")
+        );
+        return editMessageTextBuilder.build();
+    }
+
+    @Filter(callback = "add_bot")
+    EditMessageText addBot(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        return EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .text("\uD83D\uDCDD Введите количество переходов:")
+                .build();
+    }
+
+    SendMessage amountStartBot(Message message) {
+        int amount = Integer.parseInt(message.getText());
+        SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder()
+                .chatId(message.getChatId());
+        if (amount < minBotOrderAmoun) {
+            sendMessageBuilder.text("❗️Ошибка❗️\n\n" +
+                            "Минимальный заказ - " + minBotOrderAmoun + " участников!")
+                    .replyMarkup(keyboards.toMainReplyKeyboardMarkup());
+            return sendMessageBuilder.build();
+        }
+
+        Optional<User> optionalUser = userService.findUser(message.getChatId());
+        if (optionalUser.isEmpty()) {
+            return sendMessageBuilder.text("Что то пошло не так. Попробуйте перезапустить бота").build();
+        }
+        float advertisingBalance = optionalUser.get().getBalance().getAdvertising();
+        if (amount * botOrderPrice > advertisingBalance) {
+            sendMessageBuilder.text(amount + " участников ✖️ " + decimalFormat.format(botOrderPrice) + " ₽ = " + decimalFormat.format(amount * botOrderPrice) + " рублей\n\n" +
+                    "❗️ Недостаточно средств на балансе! Введите другое число:");
+        } else {
+            sendMessageBuilder.text(amount + " участников ✖️ " + decimalFormat.format(botOrderPrice) + " ₽ = " + decimalFormat.format(amount * botOrderPrice) + " рублей\n\n" +
+                    "\uD83D\uDCAC Для запуска задания отправьте ссылку на бот (реферальная разрешена), который нуждается в продвижении:");
+        }
+        return sendMessageBuilder.build();
     }
 
     @Filter(text = "\uD83D\uDCF1 Мой кабинет")
@@ -1156,6 +1237,8 @@ public class TelegramEventsHandler implements Handler {
                 return amountChannelSubscriber(message);
             case "add_group":
                 return amountMembersGroup(message);
+            case "add_bot":
+                return amountStartBot(message);
             default:
                 return bot.error(update);
         }

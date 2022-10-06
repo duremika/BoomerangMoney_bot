@@ -14,6 +14,7 @@ import ru.duremika.boomerangbot.annotations.Filter;
 import ru.duremika.boomerangbot.annotations.Handler;
 import ru.duremika.boomerangbot.common.MessageType;
 import ru.duremika.boomerangbot.config.BotConfig;
+import ru.duremika.boomerangbot.handlers.BotPromoter;
 import ru.duremika.boomerangbot.handlers.GroupPromoter;
 
 import java.io.Serializable;
@@ -30,6 +31,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final UserService userService;
     private final List<Handler> handlerClasses;
     private final GroupPromoter groupPromoter;
+    private final BotPromoter botPromoter;
 
     @Override
     public String getBotUsername() {
@@ -166,24 +168,25 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
         if (selectedMethod != null) {
             methodInvoke(update, selectedMethod);
-        } else {
-            String lm = update.hasMessage() ? userService.getLastMessage(update.getMessage().getChatId()) : null;
-            String[] lmarr;
-            if (MessageType.TEXT.equals(messageType) && lm != null && (lmarr = lm.split(" ")).length == 2 &&
-                    lmarr[0].equals("add_group") && tryParseLong(lmarr[1]) != null) {
+        } else if (chatType.equals(Filter.ChatType.PRIVATE)) {
+            String lastMessage = update.hasMessage() ? userService.getLastMessage(update.getMessage().getChatId()) : null;
+            String[] lastMessageArr = lastMessage != null ? lastMessage.split(" ") : null;
+
+            if (lastMessageArr != null && lastMessageArr.length == 2) {
                 try {
-                    groupPromoter.mayBeGroupName(update);
+                    if ("add_group".equals(lastMessageArr[0]) && tryParseLong(lastMessageArr[1]) != null) {
+                        groupPromoter.mayBeGroupName(update);
+                    } else if ("add_bot".equals(lastMessageArr[0]) && tryParseLong(lastMessageArr[1]) != null) {
+                        botPromoter.mayBeBotLink(update);
+                    }
                 } catch (TelegramApiException ignored) {
                 }
-                return;
             }
-
 
             log.error("Failed to select method");
             try {
-                if (chatType.equals(Filter.ChatType.PRIVATE)) {
-                    execute(error(update));
-                }
+                execute(error(update));
+
             } catch (TelegramApiException ignored) {
             }
         }
@@ -191,7 +194,6 @@ public class TelegramBot extends TelegramLongPollingBot {
             updateLastMessage(userId, newLastMessage);
         }
     }
-
 
 
     private void methodInvoke(Update update, Map.Entry<Method, Handler> selectedMethod) {
@@ -227,7 +229,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    public SendMessage error(Update update)  {
+    public SendMessage error(Update update) {
         Message message = update.hasMessage() ? update.getMessage() : update.getCallbackQuery().getMessage();
         Long chatId = message.getChatId();
         return SendMessage.builder()

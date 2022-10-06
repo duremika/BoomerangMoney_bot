@@ -162,6 +162,22 @@ public class Keyboards {
                 .build();
     }
 
+    public InlineKeyboardMarkup botInlineKeyboard() {
+        return InlineKeyboardMarkup.builder()
+                .keyboardRow(List.of(new InlineKeyboardButton("\uD83E\uDD16 Добавить бота") {{
+                    setCallbackData("add_bot");
+                }}))
+                .keyboardRow(List.of(new InlineKeyboardButton("⏱ Активные заказы") {{
+                    setCallbackData("active_bot_orders");
+                }}, new InlineKeyboardButton("✅ Завершённые заказы") {{
+                    setCallbackData("completed_bot_orders");
+                }}))
+                .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
+                    setCallbackData("promotion");
+                }}))
+                .build();
+    }
+
     public InlineKeyboardMarkup captchaInlineKeyboard(int result) {
         int[] buttons = generateButtonsForCaptcha(result);
         return InlineKeyboardMarkup.builder()

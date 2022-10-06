@@ -9,6 +9,7 @@ import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import ru.duremika.boomerangbot.config.BotConfig;
 import ru.duremika.boomerangbot.entities.Order;
 import ru.duremika.boomerangbot.entities.User;
 import ru.duremika.boomerangbot.keyboards.Keyboards;
@@ -26,13 +27,21 @@ public class GroupPromoter {
     private final TelegramBot bot;
     private final UserService userService;
     private final OrderService orderService;
+    private final DecimalFormat decimalFormat;
     private final Keyboards keyboards;
+    private final float groupOrderPrice;
+    private final String infoChannelId;
 
-    public GroupPromoter(@Lazy TelegramBot bot, UserService userService, OrderService orderService, Keyboards keyboards) {
+    public GroupPromoter(@Lazy TelegramBot bot, BotConfig config, UserService userService, OrderService orderService, Keyboards keyboards) {
         this.bot = bot;
         this.userService = userService;
         this.orderService = orderService;
         this.keyboards = keyboards;
+
+
+        decimalFormat = config.getDecimalFormat();
+        groupOrderPrice = config.getGroupOrderPrice();
+        infoChannelId = config.getInfoChannelId();
     }
 
     public void mayBeGroupName(Update update) throws TelegramApiException {
@@ -58,6 +67,9 @@ public class GroupPromoter {
     }
 
     private void addGroupOrder(Message message, String link) throws TelegramApiException{
+        int amount = Integer.parseInt(userService.getLastMessage(message.getChatId()).split(" ")[1]);
+        float writeOfAmount = amount * groupOrderPrice;
+
         Optional<User> optionalUserDB = userService.findUser(message.getFrom().getId());
         User userDB;
         if (optionalUserDB.isPresent()) {
@@ -75,13 +87,11 @@ public class GroupPromoter {
         Order order = new Order();
         order.setLink(link);
         order.setAuthor(userDB);
-        order.setAmount(Integer.parseInt(lastMessage[1]));
+        order.setAmount(amount);
         order.setType(Order.Type.GROUP);
         order.setTasks(new ArrayList<>());
 
         orderService.add(order);
-        float writeOfAmount = 0.4f;
-        DecimalFormat decimalFormat = new DecimalFormat("0.00");
 
         userService.writeOfFromAdvertising(userDB.getId(), writeOfAmount);
 
@@ -96,13 +106,13 @@ public class GroupPromoter {
 
         bot.execute(SendMessage.builder()
                 .text("\uD83D\uDE80 Доступно новое задание на " + lastMessage[1] + " переход")
-                .chatId("-1001697520335")
+                .chatId(infoChannelId)
                 .replyMarkup(keyboards.addChannelToInfoChannelInlineKeyboard())
                 .build());
     }
 
 
-    public String getUsernameOrChatIdFromTextMessage(String usernameOrChatId) {
+    private String getUsernameOrChatIdFromTextMessage(String usernameOrChatId) {
         if (usernameOrChatId.startsWith("-100") || usernameOrChatId.startsWith("@")) return usernameOrChatId;
         if (usernameOrChatId.startsWith("100")) return "-" + usernameOrChatId;
         try {
@@ -113,7 +123,7 @@ public class GroupPromoter {
         return "@" + usernameOrChatId;
     }
 
-    public SendMessage chatNotFound(Update update) {
+    private SendMessage chatNotFound(Update update) {
         return SendMessage.builder()
                 .text("❗️Ошибка❗️\n\n" +
                         "Проверьте, что вы отправляете USERNAME или CHAT_ID вашей группы!"
@@ -122,7 +132,7 @@ public class GroupPromoter {
                 .build();
     }
 
-    public SendMessage botNotAdminGroup(Update update, Chat group) {
+    private SendMessage botNotAdminGroup(Update update, Chat group) {
         String type = group != null ? group.getType() : null;
         return SendMessage.builder()
                 .text("❗️Ошибка❗️\n\n" +

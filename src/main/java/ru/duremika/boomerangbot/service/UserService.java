@@ -103,4 +103,11 @@ public class UserService {
                         () -> log.error("replenish the main balance in the amount of " + replenishAmount + " ₽ from user " + id + " did not pass")
                 );
     }
+
+    public enum EnabledStatus {
+        NEW_USER,
+        DISABLED_USER,
+        ENABLED_USER,
+        BANNED_USER
+    }
 }

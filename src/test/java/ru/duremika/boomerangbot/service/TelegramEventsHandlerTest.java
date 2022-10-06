@@ -12,6 +12,7 @@ import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
+import ru.duremika.boomerangbot.handlers.TelegramEventsHandler;
 
 import javax.annotation.PostConstruct;
 
@@ -50,7 +51,7 @@ class TelegramEventsHandlerTest {
     @Test
     void welcome_member() {
         updateWithMessage.getMessage().setText("member");
-        Mockito.when(userService.enableUser(updateWithMessage.getMessage().getChatId())).thenReturn(EnabledStatus.NEW_USER);
+        Mockito.when(userService.enableUser(updateWithMessage.getMessage().getChatId())).thenReturn(UserService.EnabledStatus.NEW_USER);
 
         spyBot.onUpdateReceived(updateWithMessage);
         Mockito.verify(spyEventsHandler, Mockito.times(1)).welcome(updateWithMessage.getMessage());
@@ -59,7 +60,7 @@ class TelegramEventsHandlerTest {
     @Test
     void welcome_start() {
         updateWithMessage.getMessage().setText("/start");
-        Mockito.when(userService.enableUser(updateWithMessage.getMessage().getChatId())).thenReturn(EnabledStatus.ENABLED_USER);
+        Mockito.when(userService.enableUser(updateWithMessage.getMessage().getChatId())).thenReturn(UserService.EnabledStatus.ENABLED_USER);
 
         spyBot.onUpdateReceived(updateWithMessage);
         Mockito.verify(spyEventsHandler, Mockito.times(1)).welcome(updateWithMessage.getMessage());

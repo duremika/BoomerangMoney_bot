@@ -108,7 +108,7 @@ public class TelegramEventsHandler implements Handler {
     @Filter(chatMemberUpdated = ChatMemberMember.class, command = "/start")
     SendMessage welcome(Update update) {
         Long chatId = update.hasMyChatMember() ? update.getMyChatMember().getChat().getId() : update.getMessage().getChatId();
-        EnabledStatus status = userService.enableUser(chatId);
+        UserService.EnabledStatus status = userService.enableUser(chatId);
         SendMessage.SendMessageBuilder messageBuilder = SendMessage.builder().chatId(chatId);
         switch (status) {
             case NEW_USER:

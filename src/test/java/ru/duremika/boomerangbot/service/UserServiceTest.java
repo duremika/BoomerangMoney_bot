@@ -29,8 +29,8 @@ class UserServiceTest {
         Optional<User> emptyOptionalUser = Optional.empty();
         Mockito.when(mockRepository.findById(id)).thenReturn(emptyOptionalUser);
 
-        EnabledStatus enabledStatus = userService.enableUser(id);
-        Assert.assertEquals(EnabledStatus.NEW_USER, enabledStatus );
+        UserService.EnabledStatus enabledStatus = userService.enableUser(id);
+        Assert.assertEquals(UserService.EnabledStatus.NEW_USER, enabledStatus );
         Mockito.verify(mockRepository, Mockito.times(1)).save(Mockito.any());
     }
 
@@ -41,8 +41,8 @@ class UserServiceTest {
         existsBannedOptionalUser.get().setStatus(Status.BANNED);
         Mockito.when(mockRepository.findById(id)).thenReturn(existsBannedOptionalUser);
 
-        EnabledStatus enabledStatus = userService.enableUser(id);
-        Assert.assertEquals(EnabledStatus.BANNED_USER, enabledStatus);
+        UserService.EnabledStatus enabledStatus = userService.enableUser(id);
+        Assert.assertEquals(UserService.EnabledStatus.BANNED_USER, enabledStatus);
         Mockito.verify(mockRepository, Mockito.never()).save(Mockito.any());
     }
 
@@ -53,8 +53,8 @@ class UserServiceTest {
         existsDisabledOptionalUser.get().setEnabled(false);
         Mockito.when(mockRepository.findById(id)).thenReturn(existsDisabledOptionalUser);
 
-        EnabledStatus enabledStatus = userService.enableUser(id);
-        Assert.assertEquals(EnabledStatus.DISABLED_USER, enabledStatus);
+        UserService.EnabledStatus enabledStatus = userService.enableUser(id);
+        Assert.assertEquals(UserService.EnabledStatus.DISABLED_USER, enabledStatus);
         Assert.assertTrue(existsDisabledOptionalUser.get().isEnabled());
         Mockito.verify(mockRepository, Mockito.times(1)).save(existsDisabledOptionalUser.get());
     }
@@ -66,8 +66,8 @@ class UserServiceTest {
         existsEnabledOptionalUser.get().setEnabled(true);
         Mockito.when(mockRepository.findById(id)).thenReturn(existsEnabledOptionalUser);
 
-        EnabledStatus enabledStatus = userService.enableUser(id);
-        Assert.assertEquals(EnabledStatus.ENABLED_USER, enabledStatus);
+        UserService.EnabledStatus enabledStatus = userService.enableUser(id);
+        Assert.assertEquals(UserService.EnabledStatus.ENABLED_USER, enabledStatus);
         Mockito.verify(mockRepository, Mockito.never()).save(Mockito.any());
     }
 

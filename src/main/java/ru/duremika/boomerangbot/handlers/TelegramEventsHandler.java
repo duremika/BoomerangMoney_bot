@@ -250,6 +250,32 @@ public class TelegramEventsHandler implements Handler {
                 .build();
     }
 
+    @Filter(callback = {"earn_bot", "next_task_bot"})
+    EditMessageText earnBot(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        List<Order> availableOrders = orderService.getAvailableOrders(chatId, Order.Type.BOT);
+
+        EditMessageText.EditMessageTextBuilder editMessageTextBuilder = EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId);
+
+        if (availableOrders.isEmpty()) {
+            editMessageTextBuilder
+                    .text("\uD83D\uDE1E Задания закончились! Попробуйте позднее")
+                    .replyMarkup(keyboards.backToEarnInlineKeyboard());
+        } else {
+            Order order = availableOrders.get(0);
+            String link = "https://t.me/" + order.getLink();
+            editMessageTextBuilder
+                    .text("\uD83D\uDCDD Перейдите в бота, затем перешлите любое сообщение от него и получите вознаграждение!\n\n" +
+                            "⚠️ Запрещено блокировать ботов, иначе Вы можете быть оштрафованы!\n\n" +
+                            "Перешлите любое сообщения от бота:")
+                    .replyMarkup(keyboards.botEarnInlineKeyboard(link, order.getId()));
+        }
+        return editMessageTextBuilder.build();
+    }
+
     @Filter(callback = {"earn_channel", "next_task_channel"})
     EditMessageText earnSubscribeChannel(Update update) {
         Long chatId = update.getCallbackQuery().getMessage().getChatId();
@@ -271,7 +297,6 @@ public class TelegramEventsHandler implements Handler {
             try {
                 chat = bot.execute(new GetChat(String.valueOf(order.getLink())));
                 link = chat.getUserName() != null ? "https://t.me/" + chat.getUserName() : chat.getInviteLink();
-                System.out.println(chat);
             } catch (TelegramApiException e) {
                 throw new RuntimeException(e);
             }
@@ -292,7 +317,6 @@ public class TelegramEventsHandler implements Handler {
             Order order = orderService.getOrderById(Long.parseLong(orderId));
             ChatMember chatMember = bot.execute(new GetChatMember(order.getLink(), update.getCallbackQuery().getFrom().getId()));
             notSubscribe = chatMember.getStatus().equals("left");
-            System.out.println(chatMember);
         } catch (TelegramApiException e) {
             String callbackQueryId = update.getCallbackQuery().getId();
             return AnswerCallbackQuery.builder()
@@ -389,7 +413,6 @@ public class TelegramEventsHandler implements Handler {
             try {
                 chat = bot.execute(new GetChat(String.valueOf(order.getLink())));
                 link = chat.getUserName() != null ? "https://t.me/" + chat.getUserName() : chat.getInviteLink();
-                System.out.println(chat);
             } catch (TelegramApiException e) {
                 throw new RuntimeException(e);
             }
@@ -409,7 +432,6 @@ public class TelegramEventsHandler implements Handler {
             Order order = orderService.getOrderById(Long.parseLong(orderId));
             ChatMember chatMember = bot.execute(new GetChatMember(order.getLink(), update.getCallbackQuery().getFrom().getId()));
             notSubscribe = chatMember.getStatus().equals("left");
-            System.out.println(chatMember);
         } catch (TelegramApiException e) {
             e.printStackTrace();
             String callbackQueryId = update.getCallbackQuery().getId();

@@ -20,6 +20,10 @@ public class OrderService {
         return repository.findById(id).orElse(null);
     }
 
+    public Order getOrderByLink(String link) {
+        return repository.getOrderByLink(link).orElse(null);
+    }
+
     public List<Order> getUserOrders(User author) {
         return repository.getAllByAuthor(author);
     }

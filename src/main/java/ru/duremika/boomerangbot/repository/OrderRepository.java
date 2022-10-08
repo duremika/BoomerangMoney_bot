@@ -6,9 +6,13 @@ import ru.duremika.boomerangbot.entities.Order;
 import ru.duremika.boomerangbot.entities.User;
 
 import java.util.List;
+import java.util.Optional;
 
 
 public interface OrderRepository extends CrudRepository<Order, Long> {
+
+    Optional<Order> getOrderByLink(String link);
+
     List<Order> getAllByAuthor(User author);
 
     @Query(" select o " +

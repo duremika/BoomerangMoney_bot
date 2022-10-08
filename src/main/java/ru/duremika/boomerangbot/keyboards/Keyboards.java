@@ -375,6 +375,20 @@ public class Keyboards {
                 .build();
     }
 
+    public InlineKeyboardMarkup botEarnInlineKeyboard(String link, Long orderId) {
+        return InlineKeyboardMarkup.builder()
+                .keyboardRow(List.of(new InlineKeyboardButton("1️⃣  Перейти к боту") {{
+                    setUrl(link);
+                }}))
+                .keyboardRow(List.of(new InlineKeyboardButton("▶️ Пропустить задание") {{
+                    setCallbackData("ignore_task " + orderId);
+                }}))
+                .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
+                    setCallbackData("earn");
+                }}))
+                .build();
+    }
+
     public InlineKeyboardMarkup nextTaskChannelInlineKeyboard() {
         return InlineKeyboardMarkup.builder()
                 .keyboardRow(List.of(new InlineKeyboardButton("▶️ Следующее задание") {{

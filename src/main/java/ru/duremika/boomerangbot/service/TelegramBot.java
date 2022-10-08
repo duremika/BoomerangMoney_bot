@@ -56,7 +56,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         Filter.ChatType chatType = null;
         Long userId = null;
 
-        if (update.hasMessage() && update.getMessage().getForwardFromChat() != null) {
+        if (update.hasMessage() && (update.getMessage().getForwardFromChat() != null || update.getMessage().getForwardFrom() != null)) {
             messageType = MessageType.FORWARD;
             newLastMessage = "forward";
             chatType = Filter.ChatType.fromString(update.getMessage().getChat().getType());

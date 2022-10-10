@@ -4,9 +4,9 @@ import org.springframework.data.repository.CrudRepository;
 import ru.duremika.boomerangbot.entities.Task;
 import ru.duremika.boomerangbot.entities.User;
 
-import java.util.Optional;
+import java.util.List;
 
 
 public interface TaskRepository extends CrudRepository<Task, Long> {
-    Optional<Task> getTaskByOrder_idAndUser(Long order_id, User user);
+    List<Task> getTaskByOrder_idAndUser(Long order_id, User user);
 }

@@ -104,6 +104,10 @@ public class UserService {
                 );
     }
 
+    public void update(User user){
+        repository.save(user);
+    }
+
     public enum EnabledStatus {
         NEW_USER,
         DISABLED_USER,

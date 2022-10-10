@@ -130,6 +130,13 @@ public class OnForwardHandler implements Handler {
                 .chatId(message.getChatId());
         userService.findUser(message.getChatId()).ifPresentOrElse(
                 user -> {
+                    float advertisingBalance = user.getBalance().getAdvertising();
+                    if (advertisingBalance < writeOfAmount) {
+                        sendMessageBuilder
+                                .text("❗️ Недостаточно средств на балансе!\n" +
+                                        "Не хватает " + decimalFormat.format(writeOfAmount - advertisingBalance) + " ₽");
+                        return;
+                    }
                     userService.writeOfFromAdvertising(user.getId(), writeOfAmount);
                     String text = "✅ Пост добавлен! ✅\n\n" +
                             "\uD83D\uDCB8 С вашего баланса списано " + decimalFormat.format(writeOfAmount) + "₽";
@@ -193,6 +200,13 @@ public class OnForwardHandler implements Handler {
                 .chatId(message.getChatId());
         userService.findUser(message.getChatId()).ifPresentOrElse(
                 user -> {
+                    float advertisingBalance = user.getBalance().getAdvertising();
+                    if (advertisingBalance < writeOfAmount) {
+                        sendMessageBuilder
+                                .text("❗️ Недостаточно средств на балансе!\n" +
+                                        "Не хватает " + decimalFormat.format(writeOfAmount - advertisingBalance) + " ₽");
+                        return;
+                    }
                     userService.writeOfFromAdvertising(user.getId(), writeOfAmount);
                     String text = "✅ Канал добавлен! ✅\n\n" +
                             "\uD83D\uDCB8 С Вашего баланса списано " + decimalFormat.format(writeOfAmount) + "₽\n\n" +

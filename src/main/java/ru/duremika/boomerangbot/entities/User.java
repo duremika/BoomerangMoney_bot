@@ -22,6 +22,8 @@ public class User {
     private Timestamp createdAt;
     private String lastMessage;
 
+    private Timestamp timeLastViewBonus;
+
     @Enumerated(EnumType.STRING)
     private Status status;
 

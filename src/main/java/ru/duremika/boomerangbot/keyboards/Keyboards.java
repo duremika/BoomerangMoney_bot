@@ -73,7 +73,7 @@ public class Keyboards {
                         new InlineKeyboardButton("\uD83D\uDD0E Доп. задания") {{
                             setCallbackData("earn_additional");
                         }},
-                        new InlineKeyboardButton("\uD83C\uDF81 Бонус +" + config.getBonusPrice() + "₽") {{
+                        new InlineKeyboardButton("\uD83C\uDF81 Бонус +" + config.getBonusReceivePrice() + "₽") {{
                             setCallbackData("earn_bonus");
                         }}
                 )).build();
@@ -174,6 +174,33 @@ public class Keyboards {
                 }}))
                 .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
                     setCallbackData("promotion");
+                }}))
+                .build();
+    }
+
+    public InlineKeyboardMarkup orderBonusInlineKeyboard() {
+        return InlineKeyboardMarkup.builder()
+                .keyboardRow(List.of(new InlineKeyboardButton("\uD83C\uDFAB Заказать") {{
+                    setCallbackData("add_bonus");
+                }}))
+                .build();
+    }
+
+    public InlineKeyboardMarkup representBonusTextInlineKeyboard() {
+        return InlineKeyboardMarkup.builder()
+                .keyboardRow(List.of(new InlineKeyboardButton("✅ Отправить") {{
+                    setCallbackData("bonus_confirm");
+                }}))
+                .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
+                    setCallbackData("add_bonus");
+                }}))
+                .build();
+    }
+
+    public InlineKeyboardMarkup longBonusTextInlineKeyboard() {
+        return InlineKeyboardMarkup.builder()
+                .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
+                    setCallbackData("add_bonus");
                 }}))
                 .build();
     }
@@ -389,6 +416,31 @@ public class Keyboards {
                 .build();
     }
 
+    public InlineKeyboardMarkup earnReceiveBonusInlineKeyboard(Long orderId){
+        return InlineKeyboardMarkup.builder()
+                .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDCB8 Получить бонус") {{
+                    setCallbackData("receive_bonus " + orderId);
+                }}))
+                .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDCE2 Стать спонсором") {{
+                    setCallbackData("bonus_sponsor");
+                }}))
+                .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
+                    setCallbackData("earn");
+                }}))
+                .build();
+    }
+
+    public InlineKeyboardMarkup earnReceiveBonusUnavailableInlineKeyboard(){
+        return InlineKeyboardMarkup.builder()
+                .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDCE2 Стать спонсором") {{
+                    setCallbackData("bonus_sponsor");
+                }}))
+                .keyboardRow(List.of(new InlineKeyboardButton("\uD83D\uDD19 Назад") {{
+                    setCallbackData("earn");
+                }}))
+                .build();
+    }
+
     public InlineKeyboardMarkup nextTaskChannelInlineKeyboard() {
         return InlineKeyboardMarkup.builder()
                 .keyboardRow(List.of(new InlineKeyboardButton("▶️ Следующее задание") {{
@@ -397,7 +449,7 @@ public class Keyboards {
                 .build();
     }
 
-    public InlineKeyboardMarkup nextTaskGroupInlineKeyboard(){
+    public InlineKeyboardMarkup nextTaskGroupInlineKeyboard() {
         return InlineKeyboardMarkup.builder()
                 .keyboardRow(List.of(new InlineKeyboardButton("▶️ Следующее задание") {{
                     setCallbackData("next_task_group");

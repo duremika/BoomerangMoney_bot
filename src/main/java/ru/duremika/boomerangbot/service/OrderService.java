@@ -6,6 +6,7 @@ import ru.duremika.boomerangbot.entities.User;
 import ru.duremika.boomerangbot.repository.OrderRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class OrderService {
@@ -33,7 +34,12 @@ public class OrderService {
     }
 
     public List<Order> getAvailableOrders(Long id, Order.Type type){
+        if (Order.Type.BONUS.equals(type)) throw new RuntimeException("For bonus order use getBonusOrder");
         return repository.getOrdersByPerformedLessThanAmountWithType(id, type);
+    }
+
+    public Optional<Order> getBonusOrder(){
+        return repository.getBonus().stream().findFirst();
     }
 
     public Order add(Order order) {

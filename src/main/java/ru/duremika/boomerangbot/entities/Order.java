@@ -14,7 +14,7 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
 
-    String link;
+    private String link;
     private int amount;
     private int performed;
 

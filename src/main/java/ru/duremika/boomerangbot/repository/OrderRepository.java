@@ -28,4 +28,12 @@ public interface OrderRepository extends CrudRepository<Order, Long> {
             "(select t.order.id from Task t" +
             " where t.user.id = ?1) ")
     List<Order> getOrdersByPerformedLessThanAmountWithType(Long id, Order.Type type);
+
+
+    @Query(" select o " +
+            "from Order o " +
+            "where o.performed < o.amount and o.type = 'BONUS'")
+    List<Order> getBonus();
+
 }
+

@@ -40,5 +40,6 @@ public class BotConfig {
 
     private final int inviteFriendPrice = 1;
 
-    private final float bonusPrice = 0.021f;
+    private final float bonusOrderPrice = 200.0f;
+    private final float bonusReceivePrice = 0.021f;
 }

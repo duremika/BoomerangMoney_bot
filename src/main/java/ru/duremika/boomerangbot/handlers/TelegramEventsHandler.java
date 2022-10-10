@@ -2,10 +2,7 @@ package ru.duremika.boomerangbot.handlers;
 
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
-import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
-import org.telegram.telegrambots.meta.api.methods.BotApiMethod;
-import org.telegram.telegrambots.meta.api.methods.GetUserProfilePhotos;
-import org.telegram.telegrambots.meta.api.methods.ParseMode;
+import org.telegram.telegrambots.meta.api.methods.*;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChat;
 import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatMember;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -21,15 +18,17 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.duremika.boomerangbot.annotations.Filter;
 import ru.duremika.boomerangbot.annotations.Handler;
 import ru.duremika.boomerangbot.config.BotConfig;
+import ru.duremika.boomerangbot.entities.BonusText;
 import ru.duremika.boomerangbot.entities.Order;
 import ru.duremika.boomerangbot.entities.Task;
 import ru.duremika.boomerangbot.entities.User;
 import ru.duremika.boomerangbot.keyboards.Keyboards;
 import ru.duremika.boomerangbot.service.*;
 
-import javax.annotation.PostConstruct;
 import java.io.Serializable;
+import java.sql.Timestamp;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -44,43 +43,47 @@ public class TelegramEventsHandler implements Handler {
     private final UserService userService;
     private final OrderService orderService;
     private final TaskService taskService;
-    private final BotConfig config;
+    private final BonusTextService bonusTextService;
     private final Keyboards keyboards;
 
-    private DecimalFormat decimalFormat;
-    private float postOrderPrice;
-    private int minPostOrderAmount;
-    private float postViewPrice;
+    private final String infoChannelId;
+    private final String viewsChannelId;
+
+    private final DecimalFormat decimalFormat;
+    private final float postOrderPrice;
+    private final int minPostOrderAmount;
+    private final float postViewPrice;
 
 
-    private float channelOrderPrice;
-    private int minChannelOrderAmount;
-    private float channelSubscribePrice;
+    private final float channelOrderPrice;
+    private final int minChannelOrderAmount;
+    private final float channelSubscribePrice;
 
 
-    private float groupOrderPrice;
-    private int minGroupOrderAmount;
-    private float groupJoinPrice;
+    private final float groupOrderPrice;
+    private final int minGroupOrderAmount;
+    private final float groupJoinPrice;
 
-    private float botOrderPrice;
-    private int minBotOrderAmoun;
-    private float botStartPrice;
+    private final float botOrderPrice;
+    private final int minBotOrderAmoun;
+    private final float botStartPrice;
 
-    private int inviteFriendPrice;
+    private final int inviteFriendPrice;
 
-    private float bonusPrice;
+    private final float bonusOrderPrice;
+    private final float bonusReceivePrice;
 
-    public TelegramEventsHandler(@Lazy TelegramBot bot, UserService userService, OrderService orderService, TaskService taskService, BotConfig config, Keyboards keyboards) {
+    public TelegramEventsHandler(@Lazy TelegramBot bot, UserService userService, OrderService orderService, TaskService taskService, BonusTextService bonusTextService, BotConfig config, Keyboards keyboards) {
         this.bot = bot;
         this.userService = userService;
         this.orderService = orderService;
         this.taskService = taskService;
-        this.config = config;
+        this.bonusTextService = bonusTextService;
         this.keyboards = keyboards;
-    }
 
-    @PostConstruct
-    private void init() {
+        infoChannelId = config.getInfoChannelId();
+        viewsChannelId = config.getViewsChannelId();
+
         decimalFormat = config.getDecimalFormat();
         postOrderPrice = config.getPostOrderPrice();
         minPostOrderAmount = config.getMinPostOrderAmount();
@@ -100,9 +103,9 @@ public class TelegramEventsHandler implements Handler {
         botStartPrice = config.getBotStartPrice();
 
         inviteFriendPrice = config.getInviteFriendPrice();
-        bonusPrice = config.getBonusPrice();
 
-
+        bonusOrderPrice = config.getBonusOrderPrice();
+        bonusReceivePrice = config.getBonusReceivePrice();
     }
 
     @Filter(chatMemberUpdated = ChatMemberMember.class, command = "/start")
@@ -140,13 +143,13 @@ public class TelegramEventsHandler implements Handler {
         String username = update.getMessage().getFrom().getUserName();
 
         try {
-            if (bot.execute(new GetChatMember(config.getInfoChannelId(), chatId)).getStatus().equals("left")) {
+            if (bot.execute(new GetChatMember(infoChannelId, chatId)).getStatus().equals("left")) {
                 return notInInfoChannel(chatId);
             } else if (bot.execute(new GetUserProfilePhotos(chatId, 0, 1)).getTotalCount() == 0) {
                 return hasNotPhoto(chatId);
             } else if (username == null) {
                 return hasNotUsername(chatId);
-            } else if (bot.execute(new GetChatMember(config.getViewsChannelId(), chatId)).getStatus().equals("left")) {
+            } else if (bot.execute(new GetChatMember(viewsChannelId, chatId)).getStatus().equals("left")) {
                 return notInViewerChannel(chatId);
             } else {
                 return captcha(chatId);
@@ -488,6 +491,100 @@ public class TelegramEventsHandler implements Handler {
         }
     }
 
+    @Filter(callback = "earn_bonus")
+    BotApiMethod<? extends Serializable> earnReceiveBonus(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        Optional<Order> availableBonusOrder = orderService.getBonusOrder();
+
+        EditMessageText.EditMessageTextBuilder editMessageTextBuilder = EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId);
+
+        Optional<User> optionalUser = userService.findUser(chatId);
+        if (optionalUser.isEmpty()) {
+            return editMessageTextBuilder.text("Что то пошло не так. Попробуйте перезапустить бота").build();
+        }
+        User user = optionalUser.get();
+        long now = System.currentTimeMillis();
+        Long timeLastViewBonus = user.getTimeLastViewBonus() != null ? user.getTimeLastViewBonus().getTime() : null;
+        long oneDay = 86400000;
+        Order order = availableBonusOrder.orElse(null);
+        if (order == null) {
+            return editMessageTextBuilder
+                    .text("❌ Бонус недоступен! ❌")
+                    .replyMarkup(keyboards.earnReceiveBonusUnavailableInlineKeyboard())
+                    .build();
+        }
+        BonusText bonusText = bonusTextService.get(order.getLink());
+        if (bonusText == null) {
+            return editMessageTextBuilder
+                    .text("❌ Бонус недоступен! ❌")
+                    .replyMarkup(keyboards.earnReceiveBonusUnavailableInlineKeyboard())
+                    .build();
+        }
+        String text = bonusText.getText();
+        if (timeLastViewBonus != null && now - timeLastViewBonus < oneDay && taskService.getTaskByOrderId(order.getId(), user) != null) {
+            return editMessageTextBuilder
+                    .text(text + "\n\n❌ Вы уже получали бонус сегодня! ❌")
+                    .replyMarkup(keyboards.earnReceiveBonusUnavailableInlineKeyboard())
+                    .build();
+        } else {
+            return editMessageTextBuilder
+                    .text(text + "\n\n✅ Бонус доступен! ✅")
+                    .replyMarkup(keyboards.earnReceiveBonusInlineKeyboard(order.getId()))
+                    .build();
+        }
+    }
+
+    @Filter(callback = "receive_bonus")
+    EditMessageText receiveBonus(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        Optional<Order> availableBonusOrder = orderService.getBonusOrder();
+
+        EditMessageText.EditMessageTextBuilder editMessageTextBuilder = EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId);
+
+        Optional<User> optionalUser = userService.findUser(chatId);
+        if (optionalUser.isEmpty()) {
+            return editMessageTextBuilder.text("Что то пошло не так. Попробуйте перезапустить бота").build();
+        }
+        User user = optionalUser.get();
+        long now = System.currentTimeMillis();
+        Long timeLastViewBonus = user.getTimeLastViewBonus() != null ? user.getTimeLastViewBonus().getTime() : null;
+        long oneDay = 86400000;
+        Order order = availableBonusOrder.orElse(null);
+        if (order == null) {
+            return editMessageTextBuilder
+                    .text("❌ Бонус недоступен! ❌")
+                    .replyMarkup(keyboards.earnReceiveBonusUnavailableInlineKeyboard())
+                    .build();
+        } else if (timeLastViewBonus != null && now - timeLastViewBonus < oneDay && taskService.getTaskByOrderId(order.getId(), user) != null) {
+            return editMessageTextBuilder
+                    .text("Вы уже получали бонус сегодня! ❌")
+                    .replyMarkup(keyboards.earnReceiveBonusUnavailableInlineKeyboard())
+                    .build();
+        } else {
+
+            order.setPerformed(order.getPerformed() + 1);
+            Task task = new Task();
+            task.setOrder(order);
+            task.setUser(new User(chatId));
+            task.setStatus(Task.STATUS.COMPLETED);
+            user.setTimeLastViewBonus(new Timestamp(now));
+            orderService.add(order);
+            taskService.add(task);
+            userService.update(user);
+            userService.replenishMainBalance(chatId, bonusReceivePrice);
+            editMessageTextBuilder
+                    .text("✅ Бонус выплачен! ✅")
+                    .replyMarkup(keyboards.backToEarnInlineKeyboard());
+        }
+        return editMessageTextBuilder.build();
+    }
+
     @Filter(text = "\uD83D\uDCE2 Продвижение")
     SendMessage promotion(Update update) {
         Long chatId = update.getMessage().getChatId();
@@ -824,7 +921,7 @@ public class TelegramEventsHandler implements Handler {
                     continue;
                 }
                 String link = chat.getUserName() != null ? "https://t.me/" + chat.getUserName() : chat.getInviteLink();
-                
+
                 text.append("\n▫️ ").append(link).append(" - Выполнено: ")
                         .append(order.getPerformed()).append(" из ").append(order.getAmount()).append(" раз");
             }
@@ -1167,6 +1264,107 @@ public class TelegramEventsHandler implements Handler {
                 .build();
     }
 
+    @Filter(callback = "bonus_sponsor")
+    EditMessageText becomeBonusSponsor(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+        return EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .text("\uD83D\uDCE2 Реклама в данном разделе стоит " + decimalFormat.format(bonusOrderPrice) + " рублей\n\n" +
+                        "Схема размещения - аукционная. Ваша реклама будет находиться в разделе получения бонуса, пока кто-то другой не оплатит размещение!")
+                .replyMarkup(keyboards.orderBonusInlineKeyboard())
+                .build();
+    }
+
+    @Filter(callback = "add_bonus")
+    EditMessageText addBonus(Update update) {
+        Long chatId = update.getCallbackQuery().getMessage().getChatId();
+        Integer messageId = update.getCallbackQuery().getMessage().getMessageId();
+
+        Optional<User> optionalUser = userService.findUser(update.getCallbackQuery().getMessage().getChatId());
+        if (optionalUser.isEmpty()) {
+            return EditMessageText.builder()
+                    .chatId(chatId)
+                    .messageId(messageId)
+                    .text("Что то пошло не так. Попробуйте перезапустить бота")
+                    .build();
+        }
+        float advertisingBalance = optionalUser.get().getBalance().getAdvertising();
+
+        if (advertisingBalance < bonusOrderPrice) {
+            return EditMessageText.builder()
+                    .chatId(chatId)
+                    .messageId(messageId)
+                    .text("❗️ Недостаточно средств на балансе!\n" +
+                            "Не хватает " + decimalFormat.format(bonusOrderPrice - advertisingBalance) + " ₽")
+                    .build();
+        }
+
+        return EditMessageText.builder()
+                .chatId(chatId)
+                .messageId(messageId)
+                .text("\uD83D\uDCDD Введите рекламный текст")
+                .build();
+    }
+
+    @Filter(callback = "bonus_confirm")
+    EditMessageText bonusConfirm(Update update) {
+        Message message = update.getCallbackQuery().getMessage();
+        Long chatId = message.getChatId();
+        Integer messageId = message.getMessageId();
+        EditMessageText.EditMessageTextBuilder editMessageTextBuilder = EditMessageText.builder().chatId(chatId).messageId(messageId);
+        String link = chatId + "/" + messageId;
+
+
+
+
+        Optional<User> optionalUserDB = userService.findUser(chatId);
+        User userDB;
+        if (optionalUserDB.isPresent()) {
+            userDB = optionalUserDB.get();
+            float advertisingBalance = userDB.getBalance().getAdvertising();
+            if (advertisingBalance < bonusOrderPrice) {
+                return editMessageTextBuilder
+                        .text("❗️ Недостаточно средств на балансе!\n" +
+                                "Не хватает " + decimalFormat.format(bonusOrderPrice - advertisingBalance) + " ₽")
+                        .build();
+            }
+        } else {
+            return editMessageTextBuilder
+                    .text("Что то пошло не так. Попробуйте перезапустить бота")
+                    .build();
+        }
+
+        Optional<Order> oldBonusOrderOpt = orderService.getBonusOrder();
+        if (oldBonusOrderOpt.isPresent()) {
+            Order oldBonusOrder = oldBonusOrderOpt.get();
+            oldBonusOrder.setPerformed(oldBonusOrder.getAmount());
+            orderService.add(oldBonusOrder);
+        }
+
+        Order order = new Order();
+        order.setLink(link);
+        order.setAuthor(userDB);
+        order.setAmount((int) (bonusOrderPrice / bonusReceivePrice * 0.9f));
+        order.setType(Order.Type.BONUS);
+        order.setTasks(new ArrayList<>());
+
+        userDB.getOrders().add(order);
+        String bonusText = message.getText()
+                .replace("Текст будет выглядить так:⤵\n\n", "")
+                .replace("\n\n✅ Бонус доступен! ✅", "");
+        bonusTextService.save(new BonusText(link, bonusText));
+        orderService.add(order);
+
+        userService.writeOfFromAdvertising(userDB.getId(), bonusOrderPrice);
+        String text = "✅ Теперь вы спонсор бонуса ✅\n\n" +
+                "\uD83D\uDCB8 С вашего баланса списано " + decimalFormat.format(bonusOrderPrice) + "₽";
+        return editMessageTextBuilder
+                .text(text)
+                .build();
+    }
+
     @Filter(text = "\uD83D\uDCF1 Мой кабинет")
     SendMessage myOffice(Update update) {
         Long chatId = update.getMessage().getChatId();
@@ -1186,7 +1384,6 @@ public class TelegramEventsHandler implements Handler {
                     if (days >= 365) achievmentList.append("⏳");
 
 
-
                     String text = "\uD83D\uDC68\u200D\uD83D\uDCBB Ваш кабинет:" +
                             "\n➖➖➖➖➖➖➖➖➖" +
                             "\n\uD83D\uDD5C Дней в боте: " + days +
@@ -1204,16 +1401,16 @@ public class TelegramEventsHandler implements Handler {
                             "\n\uD83C\uDF81 Получено бонусов: " + user.getTasks().stream().filter(task -> task.getOrder().getType() == Order.Type.BONUS).count() +
                             "\n➖➖➖➖➖➖➖➖➖" +
                             "\n\uD83D\uDCB3 Баланс:" +
-                            "\n● Основной: " + user.getBalance().getMain() + "₽" +
-                            "\n● Рекламный: " + user.getBalance().getAdvertising() + "₽" +
-                            "\n● Пополнено: " + user.getBalance().getToppedUp() + "₽" +
-                            "\n● Потрачено: " + user.getBalance().getSpent() + "₽" +
-                            "\n● Выведено: " + user.getBalance().getOutput() + "₽" +
+                            "\n● Основной: " + decimalFormat.format(user.getBalance().getMain()) + "₽" +
+                            "\n● Рекламный: " + decimalFormat.format(user.getBalance().getAdvertising()) + "₽" +
+                            "\n● Пополнено: " + decimalFormat.format(user.getBalance().getToppedUp()) + "₽" +
+                            "\n● Потрачено: " + decimalFormat.format(user.getBalance().getSpent()) + "₽" +
+                            "\n● Выведено: " + decimalFormat.format(user.getBalance().getOutput()) + "₽" +
                             "\n➖➖➖➖➖➖➖➖➖" +
                             "\n\uD83D\uDCB5 Заработано:" +
-                            "\n\uD83D\uDCB7 Всего: " + user.getEarned().getTotal() + "₽" +
-                            "\n❄️ Заморожено средств: " + user.getEarned().getFrozen() + "₽" +
-                            "\n⏳ Ожидается к выплате: " + user.getEarned().getAwait() + "₽";
+                            "\n\uD83D\uDCB7 Всего: " + decimalFormat.format(user.getEarned().getTotal()) + "₽" +
+                            "\n❄️ Заморожено средств: " + decimalFormat.format(user.getEarned().getFrozen()) + "₽" +
+                            "\n⏳ Ожидается к выплате: " + decimalFormat.format(user.getEarned().getAwait()) + "₽";
 
                     sendMessageBuilder
                             .text(text)

@@ -14,6 +14,7 @@ import ru.duremika.boomerangbot.annotations.Filter;
 import ru.duremika.boomerangbot.annotations.Handler;
 import ru.duremika.boomerangbot.common.MessageType;
 import ru.duremika.boomerangbot.config.BotConfig;
+import ru.duremika.boomerangbot.handlers.BonusPromoter;
 import ru.duremika.boomerangbot.handlers.BotPromoter;
 import ru.duremika.boomerangbot.handlers.GroupPromoter;
 
@@ -32,6 +33,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final List<Handler> handlerClasses;
     private final GroupPromoter groupPromoter;
     private final BotPromoter botPromoter;
+    private final BonusPromoter bonusPromoter;
 
     @Override
     public String getBotUsername() {
@@ -159,6 +161,11 @@ public class TelegramBot extends TelegramLongPollingBot {
                         selectedMethod = Map.entry(method, handler);
                         break loop;
                     }
+                    if (Arrays.asList(filter.callback()).contains("receive_bonus") &&
+                            MessageType.CALLBACK.equals(messageType) && callback.contains("receive_bonus")) {
+                        selectedMethod = Map.entry(method, handler);
+                        break loop;
+                    }
                     if (Arrays.asList(filter.chatMemberUpdated()).contains(chatMember)) {
                         selectedMethod = Map.entry(method, handler);
                         break loop;
@@ -168,8 +175,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
         if (selectedMethod != null) {
             methodInvoke(update, selectedMethod);
-        } else if (chatType.equals(Filter.ChatType.PRIVATE)) {
-            String lastMessage = update.hasMessage() ? userService.getLastMessage(update.getMessage().getChatId()) : null;
+        } else if (chatType.equals(Filter.ChatType.PRIVATE) && update.hasMessage()) {
+            String lastMessage = userService.getLastMessage(update.getMessage().getChatId());
             String[] lastMessageArr = lastMessage != null ? lastMessage.split(" ") : null;
 
             if (lastMessageArr != null && lastMessageArr.length == 2) {
@@ -179,7 +186,17 @@ public class TelegramBot extends TelegramLongPollingBot {
                     } else if ("add_bot".equals(lastMessageArr[0]) && tryParseLong(lastMessageArr[1]) != null) {
                         botPromoter.mayBeBotLink(update);
                     }
-                } catch (TelegramApiException ignored) {
+                } catch (TelegramApiException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            if ("add_bonus".equals(lastMessage)){
+                try {
+                    bonusPromoter.representBonusText(update);
+                    newLastMessage = "*bonus message text*";
+                } catch (TelegramApiException e) {
+                    e.printStackTrace();
                 }
             }
 

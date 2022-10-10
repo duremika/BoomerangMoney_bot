@@ -74,6 +74,15 @@ public class GroupPromoter {
         User userDB;
         if (optionalUserDB.isPresent()) {
             userDB = optionalUserDB.get();
+            float advertisingBalance = userDB.getBalance().getAdvertising();
+            if (advertisingBalance < writeOfAmount) {
+                bot.execute(SendMessage.builder()
+                        .chatId(message.getChatId())
+                        .text("❗️ Недостаточно средств на балансе!\n" +
+                                "Не хватает " + decimalFormat.format(writeOfAmount - advertisingBalance) + " ₽")
+                        .build());
+                return;
+            }
         } else {
             bot.execute(SendMessage.builder()
                     .chatId(message.getChatId())

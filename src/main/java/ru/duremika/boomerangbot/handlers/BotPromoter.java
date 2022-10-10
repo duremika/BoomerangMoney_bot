@@ -42,7 +42,6 @@ public class BotPromoter {
     }
 
 
-
     public void mayBeBotLink(Update update) throws TelegramApiException {
         Message message = update.getMessage();
         String botLink = getBotLink(message.getText());
@@ -62,6 +61,15 @@ public class BotPromoter {
         User userDB;
         if (optionalUserDB.isPresent()) {
             userDB = optionalUserDB.get();
+            float advertisingBalance = userDB.getBalance().getAdvertising();
+            if (advertisingBalance < writeOfAmount) {
+                bot.execute(SendMessage.builder()
+                        .chatId(message.getChatId())
+                        .text("❗️ Недостаточно средств на балансе!\n" +
+                                "Не хватает " + decimalFormat.format(writeOfAmount - advertisingBalance) + " ₽")
+                        .build());
+                return;
+            }
         } else {
             bot.execute(SendMessage.builder()
                     .chatId(message.getChatId())

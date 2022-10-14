@@ -838,7 +838,7 @@ public class TelegramEventsHandler implements Handler {
         userService.findUser(chatId).ifPresentOrElse(
                 user -> {
                     float advertisingBalance = user.getBalance().getAdvertising();
-                    String text = "\uD83D\uDCE2 *Наш бот предлагает вам возможность накрутки подписчиков на Ваш ПУБЛИЧНЫЙ и ПРИВАТНЫЙ*\n\n" +
+                    String text = "\uD83D\uDCE2 *Наш бот предлагает вам возможность накрутки подписчиков на Ваш ПУБЛИЧНЫЙ или ПРИВАТНЫЙ* канал\n\n" +
                             " \uD83C\uDF81АКЦИЯ При заказе от:\n" +
                             " *500* подписок *+25* в подарок!\n" +
                             " *1000* подписок *+100* в подарок!\n" +

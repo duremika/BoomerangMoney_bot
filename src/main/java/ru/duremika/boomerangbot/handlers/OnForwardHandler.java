@@ -74,24 +74,24 @@ public class OnForwardHandler implements Handler {
         if (lastMessage.length != 2 || lastMessage[0] == null || lastMessage[1] == null) {
             return bot.error(update);
         }
+        int amount = Integer.parseInt(lastMessage[1]);
         switch (lastMessage[0]) {
             case "add_post":
-                return promotePosts(update, lastMessage[1]);
+                return promotePosts(update, amount);
             case "add_channel":
-                return promoteChannel(message, lastMessage[1]);
+                return promoteChannel(message, amount);
             default:
                 return bot.error(update);
         }
     }
 
-    private SendMessage promotePosts(Update update, String amount) {
+    private SendMessage promotePosts(Update update, int amount) {
         Message message = update.getMessage();
-        String[] lastMessage = userService.getLastMessage(message.getChatId()).split(" ");
         String channelName = message.getForwardFromChat().getUserName();
         if (channelName == null) channelName = "c/" + String.valueOf(message.getForwardFromChat().getId()).substring(4);
         String callbackData = channelName + "/" + message.getForwardFromMessageId();
 
-        float writeOfAmount = Integer.parseInt(amount) * postOrderPrice;
+        float writeOfAmount = amount * postOrderPrice;
 
         String fromChatId = message.getChatId().toString();
         Integer messageId = message.getMessageId();
@@ -107,10 +107,20 @@ public class OnForwardHandler implements Handler {
                     .build();
         }
 
+        if (amount >= 10000) {
+            amount += 2000;
+        } else if (amount >= 5000) {
+            amount += 750;
+        } else if (amount >= 2000) {
+            amount += 200;
+        } else if (amount >= 1000) {
+            amount += 50;
+        }
+
         Order order = new Order();
         order.setLink(callbackData);
         order.setAuthor(userDB);
-        order.setAmount(Integer.parseInt(lastMessage[1]));
+        order.setAmount(amount);
         order.setType(Order.Type.POST);
         order.setTasks(new ArrayList<>());
 
@@ -120,7 +130,7 @@ public class OnForwardHandler implements Handler {
         try {
             bot.execute(new ForwardMessage(viewsChannelId, fromChatId, messageId));
             bot.execute(postPromoter.viewPostChecker(viewsChannelId, order.getId()));
-            bot.execute(postPromoter.addTaskToInfoChannel(amount, infoChannelId));
+            bot.execute(postPromoter.addTaskToInfoChannel(String.valueOf(amount), infoChannelId));
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
         }
@@ -149,7 +159,7 @@ public class OnForwardHandler implements Handler {
         return sendMessageBuilder.build();
     }
 
-    private SendMessage promoteChannel(Message message, String amount) {
+    private SendMessage promoteChannel(Message message, int amount) {
         Long chatId = message.getFrom().getId();
         String channelId = message.getForwardFromChat().getId().toString();
         Chat chat;
@@ -168,10 +178,20 @@ public class OnForwardHandler implements Handler {
                     .chatId(chatId)
                     .build();
         }
-        float writeOfAmount = Integer.parseInt(amount) * channelOrderPrice;
+        float writeOfAmount = amount * channelOrderPrice;
+
+        if (amount >= 5000) {
+            amount += 1000;
+        } else if (amount >= 2000) {
+            amount += 300;
+        } else if (amount >= 1000) {
+            amount += 100;
+        } else if (amount >= 500) {
+            amount += 25;
+        }
 
         try {
-            bot.execute(channelPromoter.addTaskToInfoChannel(amount, infoChannelId));
+            bot.execute(channelPromoter.addTaskToInfoChannel(String.valueOf(amount), infoChannelId));
         } catch (TelegramApiException e) {
             throw new RuntimeException(e);
         }
@@ -186,12 +206,10 @@ public class OnForwardHandler implements Handler {
                     .text("Что то пошло не так. Попробуйте перезапустить бота")
                     .build();
         }
-        String[] lastMessage = userService.getLastMessage(message.getChatId()).split(" ");
-
         Order order = new Order();
         order.setLink(channelId);
         order.setAuthor(userDB);
-        order.setAmount(Integer.parseInt(lastMessage[1]));
+        order.setAmount(amount);
         order.setType(Order.Type.CHANNEL);
         order.setTasks(new ArrayList<>());
 

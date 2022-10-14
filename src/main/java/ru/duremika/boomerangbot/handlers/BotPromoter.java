@@ -77,7 +77,15 @@ public class BotPromoter {
                     .build());
             return;
         }
-
+        if (amount >= 5000) {
+            amount += 1000;
+        } else if (amount >= 2000) {
+            amount += 300;
+        } else if (amount >= 1000) {
+            amount += 100;
+        } else if (amount >= 500) {
+            amount += 25;
+        }
 
         Order order = new Order();
         order.setLink(link);

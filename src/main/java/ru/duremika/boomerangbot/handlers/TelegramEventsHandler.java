@@ -18,10 +18,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import ru.duremika.boomerangbot.annotations.Filter;
 import ru.duremika.boomerangbot.annotations.Handler;
 import ru.duremika.boomerangbot.config.BotConfig;
-import ru.duremika.boomerangbot.entities.BonusText;
-import ru.duremika.boomerangbot.entities.Order;
-import ru.duremika.boomerangbot.entities.Task;
-import ru.duremika.boomerangbot.entities.User;
+import ru.duremika.boomerangbot.entities.*;
 import ru.duremika.boomerangbot.keyboards.Keyboards;
 import ru.duremika.boomerangbot.service.*;
 
@@ -1317,8 +1314,6 @@ public class TelegramEventsHandler implements Handler {
         String link = chatId + "/" + messageId;
 
 
-
-
         Optional<User> optionalUserDB = userService.findUser(chatId);
         User userDB;
         if (optionalUserDB.isPresent()) {
@@ -1421,6 +1416,76 @@ public class TelegramEventsHandler implements Handler {
         return sendMessageBuilder.build();
     }
 
+    @Filter(callback = "convert")
+    SendMessage converBalance(Update update) {
+        Message message = update.getCallbackQuery().getMessage();
+        Long chatId = message.getChatId();
+        Integer messageId = message.getMessageId();
+        SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder().chatId(chatId);
+        try {
+            bot.execute(DeleteMessage.builder()
+                    .chatId(chatId)
+                    .messageId(messageId)
+                    .build());
+        } catch (TelegramApiException ignored) {
+        }
+
+        Optional<User> optionalUserDB = userService.findUser(chatId);
+        User userDB;
+        if (optionalUserDB.isPresent()) {
+            userDB = optionalUserDB.get();
+        } else {
+            return sendMessageBuilder
+                    .text("Что то пошло не так. Попробуйте перезапустить бота")
+                    .build();
+        }
+
+        return sendMessageBuilder
+                .text("♻️ Возможен обмен баланса для вывода на рекламный баланс!\n\n" +
+                        "\uD83D\uDCB0 Баланс для вывода: *" + decimalFormat.format(userDB.getBalance().getMain()) + "₽*\n" +
+                        "\uD83D\uDCB3 Рекламный баланс: *" + decimalFormat.format(userDB.getBalance().getAdvertising()) + "₽*\n\n" +
+                        "Введите сумму обмена:")
+                .replyMarkup(keyboards.toMainReplyKeyboardMarkup())
+                .build();
+    }
+
+    SendMessage doConvertBalance(Message message) {
+        Long chatId = message.getChatId();
+        SendMessage.SendMessageBuilder sendMessageBuilder = SendMessage.builder().chatId(chatId);
+        Float amount;
+        try {
+            amount = Float.parseFloat(message.getText());
+        } catch (NumberFormatException e) {
+            return sendMessageBuilder.text("❗️Ошибка❗️\n\n" +
+                    "Введите число!").build();
+        }
+        Optional<User> optionalUserDB = userService.findUser(chatId);
+        User userDB;
+        if (optionalUserDB.isPresent()) {
+            userDB = optionalUserDB.get();
+        } else {
+            return sendMessageBuilder
+                    .text("Что то пошло не так. Попробуйте перезапустить бота")
+                    .build();
+        }
+
+        Balance userBalance = userDB.getBalance();
+        float mainBalance = userBalance.getMain();
+        float advertisingBalance = userBalance.getAdvertising();
+        if (amount < 0) {
+            return sendMessageBuilder.text("❗️Ошибка❗️\n\n" +
+                    "Введите положительное число!").build();
+        } else if (amount > mainBalance) {
+            return sendMessageBuilder.text("❗️Ошибка❗️\n\n" +
+                    "Недостаточно средств на балансе для вывода!").build();
+        } else {
+            userBalance.setMain(mainBalance - amount);
+            userBalance.setAdvertising(advertisingBalance + amount);
+            userService.update(userDB);
+            return sendMessageBuilder.text("♻️ Вы конвертировали *" + decimalFormat.format(amount) + "₽*!").build();
+        }
+    }
+
     @Filter(text = "\uD83D\uDCDA О боте")
     SendMessage aboutBot(Update update) {
         Long chatId = update.getMessage().getChatId();
@@ -1510,6 +1575,8 @@ public class TelegramEventsHandler implements Handler {
             return bot.error(update);
         }
         switch (lastMessage) {
+            case "convert":
+                return doConvertBalance(message);
             case "add_post":
                 return amountPosts(message);
             case "add_channel":
